@@ -1,0 +1,22 @@
+/* SimpleTable.css */
+.SimpleTable {
+    border-collapse: collapse;
+    width: 70%;
+    margin-bottom: 20px;
+    background-color: #333333; /* Dark background for the table */
+    color: #ffffff; /* White text color */
+}
+
+.SimpleTable th, .SimpleTable td {
+    border: 1px solid #ffffff;  /* White border color */
+    text-align: left;
+    padding: 8px;
+}
+
+.SimpleTable th {
+    background-color: #444444; /* Slightly lighter background for header */
+}
+
+.SimpleTable tr:nth-child(even) {
+    background-color: #3a3a3a; /* Slightly different background for even rows */
+}

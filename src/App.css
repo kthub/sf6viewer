@@ -2,10 +2,9 @@
   text-align: left;
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  .App-logo {
-    animation: App-logo-spin infinite 20s linear;
-  }
+.title {
+  padding: 5px;
+  font-weight: bolder;
 }
 
 .App-header {
@@ -19,8 +18,14 @@
   color: white;
 }
 
+.App-contents {
+  padding: 20px;
+  font-size: calc(6px + 2vmin);
+}
+
 .App-link {
   color: #61dafb;
+  font-size: calc(6px + 2vmin)
 }
 
 @keyframes App-logo-spin {

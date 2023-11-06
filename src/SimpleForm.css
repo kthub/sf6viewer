@@ -1,0 +1,33 @@
+/* SimpleForm.css */
+.form-content {
+    display: flex;
+    align-items: center;
+/*    padding: 20px; */
+    border-radius: 5px;
+}
+
+.form-content label {
+    margin-right: 10px;
+    font-size: calc(6px + 2vmin);
+}
+
+.form-content input {
+    margin-right: 10px;
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    flex-grow: 1;
+    text-align: right;
+}
+
+.form-content button {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 4px;
+    background-color: #61dafb;
+    cursor: pointer;
+}
+
+.form-content button:hover {
+    background-color: #21a1f1;
+}

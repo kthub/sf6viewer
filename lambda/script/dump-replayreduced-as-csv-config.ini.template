@@ -1,0 +1,4 @@
+[Settings]
+user_code = XXXXXXXXXX
+days = 90 # last 90 days
+aws_api_gateway_url = XXXXXXXXXX.execute-api.ap-northeast-1.amazonaws.com

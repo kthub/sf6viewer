@@ -1,53 +1,18 @@
 import React from 'react';
 import './SimpleTable.css';
+import * as Utils from './utils';
 
 class SimpleTable extends React.Component {
-
-  calculateRank(lp) {
-      const ranks = [
-          { name: 'Master', base: 25000, step: 0 },
-          { name: 'Diamond', base: 19000, step: 1200 },
-          { name: 'Platinum', base: 13000, step: 1200 },
-          { name: 'Gold', base: 9000, step: 800 },
-          { name: 'Silver', base: 5000, step: 800 },
-          { name: 'Bronze', base: 3000, step: 400 },
-          { name: 'Iron', base: 1000, step: 400 },
-          { name: 'Rookie', base: 0, step: 200 }
-      ];
-
-      for (let i = 0; i < ranks.length; i++) {
-          const rank = ranks[i];
-          if (lp >= rank.base) {
-              const remainingLp = lp - rank.base;
-              const divisions = Math.floor(remainingLp / rank.step) + 1;
-              const stars = '☆'.repeat(divisions);
-              return `${rank.name}${stars ? ' ' + stars : ''}`;
-          }
-      }
-  }
 
   convertData(beforeData) {
     if (!Array.isArray(beforeData)) {
       return [];
     }
 
-    // Get the current date and time in JST
-    const jstOffset = 9 * 60 * 60 * 1000; // JST is UTC+9
-    const nowJst = new Date(Date.now() + jstOffset);
-    const oneWeekAgoJst = new Date(nowJst.getTime() - 7 * 24 * 60 * 60 * 1000);
-
-    // Filter records from the last 7 days
-    const recentRecords = beforeData.filter(record => {
-      const uploadedDate = new Date(record.UploadedAt * 1000 + jstOffset);
-      return uploadedDate >= oneWeekAgoJst;
-    });
-
-    // Sort records by date
-    recentRecords.sort((a, b) => a.UploadedAt - b.UploadedAt);
-
-    // Group records by date and calculate stats
     const statsByDate = {};
+    const recentRecords = Utils.getRecentRankedMatch(beforeData);
     recentRecords.forEach(record => {
+      const jstOffset = 9 * 60 * 60 * 1000; // JST is UTC+9
       const dateStr = new Date(record.UploadedAt * 1000 + jstOffset).toISOString().split('T')[0];
       if (!statsByDate[dateStr]) {
         statsByDate[dateStr] = {
@@ -80,7 +45,7 @@ class SimpleTable extends React.Component {
         lose: statsByDate[date].lose,
         winRate: ((statsByDate[date].win / (statsByDate[date].win + statsByDate[date].lose)) * 100).toFixed(1) + '%',
         lpChange: lpChangeFormatted,
-        rank: this.calculateRank(lpEnd)
+        rank: Utils.calculateRank(lpEnd)
       };
     }).sort((a, b) => new Date(b.date) - new Date(a.date));
 

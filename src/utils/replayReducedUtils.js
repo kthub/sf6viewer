@@ -20,5 +20,31 @@ export function getRecentRankedMatch(gameRecord) {
     return isValidDate && isValidBattleType;
   });
 
-  return recentRecords;
+  return recentRecords.sort((a, b) => a.UploadedAt - b.UploadedAt);
+}
+
+/**
+ * calculateRank
+ */
+export function calculateRank(lp) {
+  const ranks = [
+    { name: 'Master', base: 25000, step: 0 },
+    { name: 'Diamond', base: 19000, step: 1200 },
+    { name: 'Platinum', base: 13000, step: 1200 },
+    { name: 'Gold', base: 9000, step: 800 },
+    { name: 'Silver', base: 5000, step: 800 },
+    { name: 'Bronze', base: 3000, step: 400 },
+    { name: 'Iron', base: 1000, step: 400 },
+    { name: 'Rookie', base: 0, step: 200 }
+  ];
+
+  for (let i = 0; i < ranks.length; i++) {
+    const rank = ranks[i];
+    if (lp >= rank.base) {
+      const remainingLp = lp - rank.base;
+      const divisions = Math.floor(remainingLp / rank.step) + 1;
+      const stars = '☆'.repeat(divisions);
+      return `${rank.name}${stars ? ' ' + stars : ''}`;
+    }
+  }
 }

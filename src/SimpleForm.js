@@ -17,7 +17,11 @@ function SimpleForm(props) {
     const url = `https://wcsppz000i.execute-api.ap-northeast-1.amazonaws.com/retrieveBattleLog?USER_CODE=${userCode}`;
 
     try {
-      const response = await fetch(url);
+      const response = await fetch(url, {
+        headers: {
+          'Accept-Encoding': 'gzip, deflate, br'
+        }
+      });
       if (!response.ok) {
         throw new Error('Network response was not ok ' + response.statusText);
       }

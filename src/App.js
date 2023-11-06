@@ -19,7 +19,7 @@ function App() {
           <br />
           User Name: {gameRecord[0]?.ReplayReduced.fighter_id || 'XXXXXXXX'}
           <ul>
-            <li>１週間の勝率</li>
+            <li>１週間の勝率（ランクマッチのみ）</li>
               <SimpleTable gameRecord={gameRecord} />
             <li>対戦キャラベスト10（直近１週間）</li>
               <SimpleList gameRecord={gameRecord} />

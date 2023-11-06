@@ -3,10 +3,6 @@ import './SimpleTable.css';
 
 class SimpleTable extends React.Component {
 
-  constructor(props) {
-    super(props);
-  };
-
   calculateRank(lp) {
       const ranks = [
           { name: 'Master', base: 25000, step: 0 },

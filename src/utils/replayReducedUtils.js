@@ -24,6 +24,25 @@ export function getRecentRankedMatch(gameRecord) {
 }
 
 /**
+ * addLeagePointAfter
+ */
+export function addLeaguePointAfter(gameRecord, currentLP) {
+  gameRecord.sort((a, b) => a.UploadedAt - b.UploadedAt);
+  for (let i = 0; i < gameRecord.length; i++) {
+    if (i === gameRecord.length - 1) {
+      if (currentLP > 0) {
+        gameRecord[i].ReplayReduced.league_point_after = currentLP;
+      } else {
+        // if currentLP is not provided, set last LP as next best thing.
+        gameRecord[i].ReplayReduced.league_point_after = gameRecord[i].ReplayReduced.league_point;
+      }
+    } else {
+      gameRecord[i].ReplayReduced.league_point_after = gameRecord[i + 1].ReplayReduced.league_point;
+    }
+  }
+}
+
+/**
  * calculateRank
  */
 export function calculateRank(lp) {

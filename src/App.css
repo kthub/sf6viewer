@@ -1,13 +1,5 @@
 .App {
   text-align: left;
-}
-
-.title {
-  padding: 5px;
-  font-weight: bolder;
-}
-
-.App-header {
   background-color: #282c34;
   min-height: 100vh;
   display: flex;
@@ -18,21 +10,26 @@
   color: white;
 }
 
+.App-header {
+  padding: 10px;
+}
+
+.title {
+  font-weight: bolder;
+}
+
+.version {
+  font-size: calc(3px + 2vmin);
+  font-weight: 'normal';
+  margin-left: 1em;
+}
+
 .App-contents {
   padding: 20px;
-  font-size: calc(6px + 2vmin);
+  font-size: calc(4px + 2vmin);
 }
 
 .App-link {
   color: #61dafb;
-  font-size: calc(6px + 2vmin)
-}
-
-@keyframes App-logo-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
+  font-size: calc(4px + 2vmin)
 }

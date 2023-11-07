@@ -10,7 +10,12 @@ class SimpleTable extends React.Component {
     }
 
     const statsByDate = {};
-    const recentRecords = Utils.getRecentRankedMatch(beforeData);
+    let recentRecords = Utils.getRecentRankedMatch(beforeData);
+
+    // add league point after battle
+    // TBD: get current LP
+    Utils.addLeaguePointAfter(recentRecords, -1);
+
     recentRecords.forEach(record => {
       const jstOffset = 9 * 60 * 60 * 1000; // JST is UTC+9
       const dateStr = new Date(record.UploadedAt * 1000 + jstOffset).toISOString().split('T')[0];
@@ -19,11 +24,11 @@ class SimpleTable extends React.Component {
           win: 0,
           lose: 0,
           league_point_start: record.ReplayReduced.league_point,
-          league_point_end: record.ReplayReduced.league_point
+          league_point_end: record.ReplayReduced.league_point_after
         };
       }
 
-      statsByDate[dateStr].league_point_end = record.ReplayReduced.league_point;
+      statsByDate[dateStr].league_point_end = record.ReplayReduced.league_point_after;
 
       if (record.ReplayReduced.result === 'win') {
         statsByDate[dateStr].win += 1;

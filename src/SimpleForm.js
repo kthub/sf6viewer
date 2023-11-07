@@ -39,7 +39,11 @@ function SimpleForm(props) {
     <form onSubmit={handleSubmit} className="form-content">
       <label>
         User Code: &nbsp;
-        <input type="text" name="userCode" placeholder="1234567890" value={userCode} onChange={handleChange} />
+        <input type="text"
+               name="userCode"
+               placeholder="1234567890"
+               value={userCode}
+               onChange={handleChange} />
       </label>
       <button type="submit">Submit</button>
     </form>

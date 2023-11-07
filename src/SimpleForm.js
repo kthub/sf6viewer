@@ -41,6 +41,7 @@ function SimpleForm(props) {
         User Code: &nbsp;
         <input type="text"
                name="userCode"
+               size="14"
                placeholder="1234567890"
                value={userCode}
                onChange={handleChange} />

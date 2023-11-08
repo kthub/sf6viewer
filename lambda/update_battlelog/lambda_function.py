@@ -1,6 +1,7 @@
 import json
 import logging
 import boto3
+from botocore.exceptions import ClientError
 import os
 import time
 import requests
@@ -89,11 +90,49 @@ def lambda_handler(event, context):
     'Cookie': f"CookieConsent={{'stamp':'6oNLBjPlhgvQsfXTcT3nYo80bz5NQ0zBXB/8f2bTC8qu7EGMr60Y/w==','necessary':True,'preferences':True,'statistics':True,'marketing':True,'method':'explicit','ver':2,'utc':1691968880965,'region':'jp'}}; buckler_id={buckler_id}; _gid={gid}"
   }
 
+  # SNS
+  SNS = boto3.client('sns')
+  SNS_TOPIC_ARN = "arn:aws:sns:ap-northeast-1:572065744477:email-notification"
+
+  ##
+  ## Update User
+  ##
+  # Target URL
+  play_url = f'https://www.streetfighter.com/6/buckler/_next/data/{server_id}/ja-jp/profile/{user_code}/play.json?sid={user_code}'
+
+  # Query play.json and update User table
+  try:
+    request_start_time = time.perf_counter()
+    response = requests.get(play_url, headers=headers)
+    request_end_time = time.perf_counter()
+    logger.info(f'request completed with {(request_end_time - request_start_time) * 1000.0}[ms]. URL={play_url}')
+
+    data = response.json()
+    item = {
+      'UserCode': user_code,
+      'CurrentLP': data['pageProps']['fighter_banner_info']['favorite_character_league_info']['league_point']
+    }
+    response = dynamodb.Table('User').put_item(
+      Item=item
+    )
+    logger.info(f'put item to User table (UserCode={user_code})')
+  except Exception as e:
+    logger.error(f'Error occurred: {e}')
+    SNS.publish(
+      TopicArn=SNS_TOPIC_ARN,
+      Message=f"An error occurred in the Lambda function: {e}",
+      Subject="Lambda Function Error (updateBattleLog::User)"
+    )
+    raise
+  
+  ##
+  ## Update BattleLog
+  ##
   # Target URL
   base_url = f'https://www.streetfighter.com/6/buckler/_next/data/{server_id}/ja-jp/profile/{user_code}/battlelog.json?sid={user_code}'
   urls = [base_url + (f"&page={i}" if i > 1 else "") for i in range(1, 11)]
 
-  # Query JSON and update BattleLog table
+  # Query battlelog.json and update BattleLog table
   try:
     for url in urls:
       request_start_time = time.perf_counter()
@@ -109,16 +148,23 @@ def lambda_handler(event, context):
           'Replay': json.dumps(replay),
           'ReplayReduced': json.dumps(transform_to_replay_reduced(replay, int(user_code))),
         }
-        response = table.put_item(Item=item)
-        logger.info(f'put item (UserCode={user_code}, UploadedAt={str(replay["uploaded_at"])})')
+        try:
+          response = table.put_item(
+            Item=item,
+            ConditionExpression='attribute_not_exists(UserCode) AND attribute_not_exists(UploadedAt)'
+          )
+          logger.info(f'put item to BattleLog table (UserCode={user_code}, UploadedAt={str(replay["uploaded_at"])})')
+        except ClientError as ex:
+          if ex.response['Error']['Code'] == 'ConditionalCheckFailedException':
+            print(f'item already exist. skip put item. (UserCode={user_code}, UploadedAt={str(replay["uploaded_at"])})')
+          else:
+            raise
   except Exception as e:
     logger.error(f'Error occurred: {e}')
-    sns = boto3.client('sns')
-    sns_topic_arn = "arn:aws:sns:ap-northeast-1:572065744477:email-notification"
-    sns.publish(
-      TopicArn=sns_topic_arn,
+    SNS.publish(
+      TopicArn=SNS_TOPIC_ARN,
       Message=f"An error occurred in the Lambda function: {e}",
-      Subject="Lambda Function Error (updateBattleLog)"
+      Subject="Lambda Function Error (updateBattleLog::BattleLog)"
     )
     raise
 

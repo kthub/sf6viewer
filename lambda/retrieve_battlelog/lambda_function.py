@@ -24,26 +24,46 @@ def lambda_handler(event, context):
     
     # Initialize a DynamoDB resources
     dynamodb = boto3.resource('dynamodb')
-    table = dynamodb.Table('BattleLog')
-
-    # Get the epoch timestamp for the start date (default to 8 weeks ago if not provided)
-    start_epoch = int((time.time() - (retrieve_option * 7 * 24 * 60 * 60)))
+    table_user = dynamodb.Table('User')
+    table_battlelog = dynamodb.Table('BattleLog')
+    
+    # Query table_user to get current LP
+    response = table_user.query(
+        KeyConditionExpression=Key('UserCode').eq(user_code),
+        ProjectionExpression='UserCode, CurrentLP'
+    )
+    items = response.get('Items', [])
+    currentLP = items[0]['CurrentLP']
+    
+    # Get the epoch timestamp for the start date (default to 8 d ago if not provided)
+    start_epoch = int((time.time() - (retrieve_option * 24 * 60 * 60)))
     logger.info(f'start_epoch: {start_epoch}')
 
-    # Query table
-    response = table.query(
+    # Query table_battlelog
+    response = table_battlelog.query(
         KeyConditionExpression=Key('UserCode').eq(user_code) & Key('UploadedAt').gte(start_epoch),
         ProjectionExpression='UserCode, UploadedAt, ReplayReduced'
     )
-    hits = len(response.get('Items', []))
-    logger.info(f'{hits} items retrieved.')
+    items = response.get('Items', [])
 
+    while 'LastEvaluatedKey' in response:
+        response = table_battlelog.query(
+            KeyConditionExpression=Key('UserCode').eq(user_code) & Key('UploadedAt').gte(start_epoch),
+            ProjectionExpression='UserCode, UploadedAt, ReplayReduced',
+            ExclusiveStartKey=response['LastEvaluatedKey']
+        )
+        items.extend(response.get('Items', []))
+    
+    hits = len(items)
+    logger.info(f'{hits} items retrieved.')
+    
     # Expand resultant JSON string
     expanded_items = []
-    for item in response.get('Items', []):
+    for item in items:
         item_copy = item.copy()  # Create a copy to avoid modifying the original item
         item_copy['ReplayReduced'] = json.loads(item['ReplayReduced'])  # Expand JSON string to JSON object
         item_copy['UploadedAt'] = int(item['UploadedAt'])
+        item_copy['CurrentLP'] = int(currentLP)
         expanded_items.append(item_copy)
 
     # Return JSON

@@ -13,8 +13,7 @@ class SimpleTable extends React.Component {
     let recentRecords = Utils.getRecentRankedMatch(beforeData);
 
     // add league point after battle
-    // TBD: get current LP
-    Utils.addLeaguePointAfter(recentRecords, -1);
+    Utils.addLeaguePointAfter(recentRecords, recentRecords[0].CurrentLP);
 
     recentRecords.forEach(record => {
       const jstOffset = 9 * 60 * 60 * 1000; // JST is UTC+9

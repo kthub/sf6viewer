@@ -27,13 +27,14 @@ def lambda_handler(event, context):
     table_user = dynamodb.Table('User')
     table_battlelog = dynamodb.Table('BattleLog')
     
-    # Query table_user to get current LP
+    # Query table_user to get current LP and character name
     response = table_user.query(
         KeyConditionExpression=Key('UserCode').eq(user_code),
-        ProjectionExpression='UserCode, CurrentLP'
+        ProjectionExpression='UserCode, CurrentLP, CharacterName'
     )
     items = response.get('Items', [])
     currentLP = items[0]['CurrentLP']
+    characterName = items[0]['CharacterName']
     
     # Get the epoch timestamp for the start date (default to 8 d ago if not provided)
     start_epoch = int((time.time() - (retrieve_option * 24 * 60 * 60)))
@@ -64,6 +65,7 @@ def lambda_handler(event, context):
         item_copy['ReplayReduced'] = json.loads(item['ReplayReduced'])  # Expand JSON string to JSON object
         item_copy['UploadedAt'] = int(item['UploadedAt'])
         item_copy['CurrentLP'] = int(currentLP)
+        item_copy['CharacterName'] = characterName
         expanded_items.append(item_copy)
 
     # Return JSON

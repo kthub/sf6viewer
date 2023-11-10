@@ -108,8 +108,20 @@ def lambda_handler(event, context):
     logger.info(f'request completed with {(request_end_time - request_start_time) * 1000.0}[ms]. URL={play_url}')
 
     data = response.json()
+
+    # get favorite character name
+    favorite_character_id = data['pageProps']['fighter_banner_info']['favorite_character_id']
+
+    character_league_infos = data['pageProps']['play']['character_league_infos']
+    favorite_character_name = None
+    for character_info in character_league_infos:
+        if character_info['character_id'] == favorite_character_id:
+            favorite_character_name = character_info['character_name']
+            break
+
     item = {
       'UserCode': user_code,
+      'CharacterName': favorite_character_name,
       'CurrentLP': data['pageProps']['fighter_banner_info']['favorite_character_league_info']['league_point']
     }
     response = dynamodb.Table('User').put_item(

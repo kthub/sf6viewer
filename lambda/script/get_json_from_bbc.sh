@@ -7,6 +7,9 @@
 SCRIPT_DIR=$(cd $(dirname $0); pwd)
 source ${SCRIPT_DIR}/get_json_from_bbc_secrets.sh
 
+# CHECK => 0:URL0, 1:URL1
+CHECK=1
+
 ##
 ## Main
 ##
@@ -23,7 +26,13 @@ COOKIE_CONSENT="{stamp:%276oNLBjPlhgvQsfXTcT3nYo80bz5NQ0zBXB/8f2bTC8qu7EGMr60Y/w
 COOKIE_DATA="CookieConsent=${COOKIE_CONSENT}; buckler_id=${BUCKLER_ID}; _gid=${GID}"
 
 # Query
-curl -s ${URL1} \
-  -H "${USER_AGENT}" \
-  -H "Cookie: '${COOKIE_DATA}'" \
-   | jq '.pageProps.replay_list[] | {player1: .player1_info | {character_name: .character_name, round_results: .round_results}, player2: .player2_info | {character_name: .character_name, round_results: .round_results}}'
+if [ "$CHECK" -eq 0 ]; then
+  curl -s ${URL0} \
+    -H "${USER_AGENT}" \
+    -H "Cookie: '${COOKIE_DATA}'"
+else
+  curl -s ${URL1} \
+    -H "${USER_AGENT}" \
+    -H "Cookie: '${COOKIE_DATA}'" \
+     | jq '.pageProps.replay_list[] | {player1: .player1_info | {character_name: .character_name, round_results: .round_results}, player2: .player2_info | {character_name: .character_name, round_results: .round_results}}'
+fi

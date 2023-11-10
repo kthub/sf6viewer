@@ -17,7 +17,12 @@ export function getRecentRankedMatch(gameRecord) {
     const battleType = record.ReplayReduced.replay_battle_type_name;
     const isValidBattleType = ("RANKED MATCH" === battleType);
 
-    return isValidDate && isValidBattleType;
+    // check match (CharacterName is favorite character)
+    const favorite_character_name = record.CharacterName;
+    const battle_character_name = record.ReplayReduced.character_name;
+    const isValidCharacter = (favorite_character_name === battle_character_name);
+
+    return isValidDate && isValidBattleType && isValidCharacter;
   });
 
   return recentRecords.sort((a, b) => a.UploadedAt - b.UploadedAt);

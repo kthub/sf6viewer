@@ -65,10 +65,14 @@ export function calculateRank(lp) {
   for (let i = 0; i < ranks.length; i++) {
     const rank = ranks[i];
     if (lp >= rank.base) {
-      const remainingLp = lp - rank.base;
-      const divisions = Math.floor(remainingLp / rank.step) + 1;
-      const stars = '☆'.repeat(divisions);
-      return `${rank.name}${stars ? ' ' + stars : ''}`;
+      if (i == 0) {
+        return `Master`;
+      } else {
+        const remainingLp = lp - rank.base;
+        const divisions = Math.floor(remainingLp / rank.step) + 1;
+        const stars = '☆'.repeat(divisions);
+        return `${rank.name}${stars ? ' ' + stars : ''}`;
+      }
     }
   }
 }

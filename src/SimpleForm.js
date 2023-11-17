@@ -52,7 +52,7 @@ function SimpleForm(props) {
                onChange={handleChange} />
       </label>
       <button type="submit" disabled={isLoading}>
-        {isLoading ? <span className="loading-text">データ取得中...</span> : 'Submit'}
+        {isLoading ? <span className="loading-text">Loading...</span> : 'Submit'}
       </button>
     </form>
   );

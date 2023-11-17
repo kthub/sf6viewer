@@ -29,6 +29,11 @@
   font-size: calc(4px + 2vmin);
 }
 
+.App-link {
+  color: #61dafb;
+  font-size: calc(2px + 2vmin)
+}
+
 .App-footer {
   padding: 10px;
   font-size: calc(2px + 2vmin);

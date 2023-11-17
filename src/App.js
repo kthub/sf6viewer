@@ -28,10 +28,10 @@ function App() {
         *** 使い方 ***<br/>
         <ul>
           <li>User Codeを指定してSubmitボタンを押すと過去１週間分の対戦情報に基づく集計結果が表示されます。</li>
-          <li>自分のUser Codeは<a href="https://www.streetfighter.com/6/buckler/ja-jp" target="_blank" rel="noopener noreferrer">BUCKLER'S BOOT CAMP</a>で確認することができます。</li>
-          <li>データはユーザーごとに蓄積しています。初めて実行するユーザーの場合データの取得に少し時間がかかります。</li>
-          <li>ユーザーのデータは初回の実行以降定期的に取得されるようになります。対戦情報は過去100対戦分しか取得できないので１週間分の結果が見られるようになるまでには最長で１週間かかります。</li>
-          <li>予告なく公開終了することがあります。そうなったらゴメンネ！</li>
+          <li>自分のUser Codeは<a href="https://www.streetfighter.com/6/buckler/ja-jp" target="_blank" rel="noopener noreferrer">BUCKLER'S BOOT CAMP</a>で確認できます。</li>
+          <li>データはユーザーごとに保持しています。初めて実行するユーザーはデータの取得に少し時間がかかります。</li>
+          <li>ユーザーのデータは初回の実行以降３時間ごとに取得されるようになります。最新の情報が反映されるまでには最大３時間かかります。</li>
+          <li>対戦情報は過去100対戦分しか取得できないため初回実行後しばらくの間は１週間分の結果が見られない場合があります。最長１週間で見られるようになります。</li>
         </ul>
       </footer>
     </div>

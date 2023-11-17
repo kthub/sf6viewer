@@ -31,3 +31,12 @@
 .form-content button:hover {
     background-color: #21a1f1;
 }
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+.loading-text {
+  animation: blink 1.5s linear infinite;
+}

@@ -97,42 +97,6 @@ def lambda_handler(event, context):
       'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36',
       'Cookie': f"CookieConsent={{'stamp':'6oNLBjPlhgvQsfXTcT3nYo80bz5NQ0zBXB/8f2bTC8qu7EGMr60Y/w==','necessary':True,'preferences':True,'statistics':True,'marketing':True,'method':'explicit','ver':2,'utc':1691968880965,'region':'jp'}}; buckler_id={buckler_id}; _gid={gid}"
     }
-
-    ##
-    ## Update User
-    ##
-    # Target URL
-    play_url = f'https://www.streetfighter.com/6/buckler/_next/data/{server_id}/ja-jp/profile/{user_code}/play.json?sid={user_code}'
-
-    # Query play.json and update User table
-    request_start_time = time.perf_counter()
-    response = requests.get(play_url, headers=headers)
-    request_end_time = time.perf_counter()
-    logger.info(f'request completed with {(request_end_time - request_start_time) * 1000.0}[ms]. URL={play_url}')
-
-    data = response.json()
-
-    # Get favorite character name
-    favorite_character_id = data['pageProps']['fighter_banner_info']['favorite_character_id']
-    character_league_infos = data['pageProps']['play']['character_league_infos']
-    favorite_character_name = None
-    for character_info in character_league_infos:
-      if character_info['character_id'] == favorite_character_id:
-        favorite_character_name = character_info['character_name']
-        break
-
-    # Create item to put
-    item = {
-      'UserCode': user_code,
-      'CharacterName': favorite_character_name,
-      'CurrentLP': data['pageProps']['fighter_banner_info']['favorite_character_league_info']['league_point']
-    }
-
-    # Put item
-    response = table_user.put_item(
-      Item=item
-    )
-    logger.info(f'put item to User table (UserCode={user_code})')
     
     ##
     ## Update BattleLog
@@ -185,7 +149,8 @@ def lambda_handler(event, context):
         else:
           request_skip_flag = True
     
-    logger.info(f'new record detected ({len(batch_items)} items)')
+    if len(batch_items) > 0:
+      logger.info(f'new record detected ({len(batch_items)} items)')
 
     # Batch Write (max items per one batch operation is 25)
     for i in range(0, len(batch_items), 25):
@@ -193,13 +158,51 @@ def lambda_handler(event, context):
       response = dynamodb.batch_write_item(RequestItems={table_battlelog.name: batch_to_write})
 
     # debug
-    for item in batch_items:
-      logger.info(f'put item to BattleLog table (UserCode={user_code}, UploadedAt={str(item["PutRequest"]["Item"]["UploadedAt"])})')
+    #for item in batch_items:
+    #  logger.info(f'put item to BattleLog table (UserCode={user_code}, UploadedAt={str(item["PutRequest"]["Item"]["UploadedAt"])})')
 
-    if (len(batch_items) > 0):
-      logger.info(f'batch write to the BattleLog table completed.')
+    if len(batch_items) > 0:
+      logger.info(f'batch write to the BattleLog table completed. ({len(batch_items)} items)')
     else:
       logger.info(f'no item to update.')
+
+    ##
+    ## Update User
+    ##
+    if len(batch_items) > 0:
+      # Target URL
+      play_url = f'https://www.streetfighter.com/6/buckler/_next/data/{server_id}/ja-jp/profile/{user_code}/play.json?sid={user_code}'
+
+      # Query play.json and update User table
+      request_start_time = time.perf_counter()
+      response = requests.get(play_url, headers=headers)
+      request_end_time = time.perf_counter()
+      logger.info(f'request completed with {(request_end_time - request_start_time) * 1000.0}[ms]. URL={play_url}')
+
+      data = response.json()
+
+      # Get favorite character name
+      favorite_character_id = data['pageProps']['fighter_banner_info']['favorite_character_id']
+      character_league_infos = data['pageProps']['play']['character_league_infos']
+      favorite_character_name = None
+      for character_info in character_league_infos:
+        if character_info['character_id'] == favorite_character_id:
+          favorite_character_name = character_info['character_name']
+          break
+
+      # Create item to put
+      item = {
+        'UserCode': user_code,
+        'FighterId': data['pageProps']['fighter_banner_info']['personal_info']['fighter_id'],
+        'CharacterName': favorite_character_name,
+        'CurrentLP': data['pageProps']['fighter_banner_info']['favorite_character_league_info']['league_point']
+      }
+
+      # Put item
+      response = table_user.put_item(
+        Item=item
+      )
+      logger.info(f'put item to User table (UserCode={user_code})')
 
   except Exception as e:
     logger.error(f'Error occurred: {e}')

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import './SimpleForm.css';
 
 function SimpleForm(props) {
+  const [isLoading, setIsLoading] = useState(false);
   const [userCode, setUserCode] = useState('');
 
   const handleChange = (e) => {
@@ -10,6 +11,7 @@ function SimpleForm(props) {
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    setIsLoading(true);
     fetchData();
   };
 
@@ -27,8 +29,11 @@ function SimpleForm(props) {
       }
       const gameRecord = await response.json();
 
-      // 取得したデータで親コンポーネントの状態を更新
+      // update component's state with the data from url
       props.setGameRecord(gameRecord);
+
+      // restore button state
+      setIsLoading(false)
 
     } catch (error) {
       console.error('There has been a problem with your fetch operation:', error);
@@ -46,7 +51,9 @@ function SimpleForm(props) {
                value={userCode}
                onChange={handleChange} />
       </label>
-      <button type="submit">Submit</button>
+      <button type="submit" disabled={isLoading}>
+        {isLoading ? <span className="loading-text">データ取得中...</span> : 'Submit'}
+      </button>
     </form>
   );
 }

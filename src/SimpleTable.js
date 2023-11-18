@@ -60,8 +60,14 @@ class SimpleTable extends React.Component {
    * React render method.
    */
   render() {
+    if (!this.props.gameRecord || !Array.isArray(this.props.gameRecord) || this.props.gameRecord.length === 0) {
+      return null;
+    }
     return (
-      <Table dataList={this.convertData(this.props.gameRecord)} />
+      <div>
+        <li>１週間の勝率（ランクマッチのみ）</li>
+        <Table dataList={this.convertData(this.props.gameRecord)} />
+      </div>
     );
   }
 }

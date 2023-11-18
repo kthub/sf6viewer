@@ -131,7 +131,11 @@ def lambda_handler(event, context):
       request_end_time = time.perf_counter()
       logger.info(f'request completed with {(request_end_time - request_start_time) * 1000.0}[ms]. URL={url}')
 
-      data = response.json()
+      try:
+        data = response.json()
+      except:
+        raise Exception("JSON Parse Error. Check if SERVER_ID is valid.")
+      
       for replay in data['pageProps']['replay_list']:
         uploaded_at = replay['uploaded_at']
         if (uploaded_at > latestUploadedAt):
@@ -209,7 +213,7 @@ def lambda_handler(event, context):
     sns.publish(
       TopicArn=SNS_TOPIC_ARN,
       Message=f"An error occurred in the Lambda function: {e}",
-      Subject="Lambda Function Error (updateBattleLog)"
+      Subject=f"Lambda Function Error (updateBattleLog, UserCode={user_code})"
     )
     raise
 

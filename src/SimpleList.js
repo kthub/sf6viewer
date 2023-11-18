@@ -6,7 +6,7 @@ class SimpleList extends React.Component {
 
   convertData(gameRecord) {
     if (!Array.isArray(gameRecord)) {
-      return ['XXXXX'];
+      return [];
     }
 
     const charNameCount = {};
@@ -38,8 +38,14 @@ class SimpleList extends React.Component {
   }
 
   render() {
+    if (!this.props.gameRecord || !Array.isArray(this.props.gameRecord) || this.props.gameRecord.length === 0) {
+      return null;
+    }
     return (
-      <List dataList={this.convertData(this.props.gameRecord)} />
+      <div>
+        <li>対戦キャラベスト10（直近１週間）</li>
+        <List dataList={this.convertData(this.props.gameRecord)} />
+      </div>
     );
   }
 }

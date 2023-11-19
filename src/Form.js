@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import './SimpleForm.css';
+import './Form.css';
 
-function SimpleForm(props) {
+function Form(props) {
   const [userCode, setUserCode] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
@@ -59,7 +59,7 @@ function SimpleForm(props) {
   }
 
   return (
-    <div className="simpleform">
+    <div className="wholeform">
       <form onSubmit={handleSubmit} className="form-content">
         <label>
           User Code: &nbsp;
@@ -79,4 +79,4 @@ function SimpleForm(props) {
   );
 }
 
-export default SimpleForm;
+export default Form;

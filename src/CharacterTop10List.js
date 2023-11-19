@@ -1,8 +1,7 @@
 import React from 'react';
-//import './SimpleList.css';
 import * as Utils from './utils';
 
-class SimpleList extends React.Component {
+class CharacterTop10List extends React.Component {
 
   convertData(gameRecord) {
     if (!Array.isArray(gameRecord)) {
@@ -62,8 +61,4 @@ function List({ dataList }) {
   );
 }
 
-export default SimpleList;
-
-// Usage
-// import SimpleList from './SimpleList';
-// <SimpleList />
+export default CharacterTop10List;

@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import UserInfo from './UserInfo';
-import SimpleTable from './SimpleTable';
-import SimpleForm from './SimpleForm';
-import SimpleList from './SimpleList';
 import './App.css';
+import Form from './Form';
+import UserInfo from './UserInfo';
+import WinRateTable from './WinRateTable';
+import CharacterTop10List from './CharacterTop10List';
 
 function App() {
   const [gameRecord, setGameRecord] = useState({});
@@ -14,10 +14,10 @@ function App() {
         <span className="title">SF6 Viewer</span><span className="version">ver 0.9</span>
       </header>
       <main className="App-contents">
-        <SimpleForm setGameRecord={setGameRecord} />
+        <Form setGameRecord={setGameRecord} />
         <UserInfo gameRecord={gameRecord} />
-        <SimpleTable gameRecord={gameRecord} />
-        <SimpleList gameRecord={gameRecord} />
+        <WinRateTable gameRecord={gameRecord} />
+        <CharacterTop10List gameRecord={gameRecord} />
       </main>
       <footer className="App-footer">
         <hr/>

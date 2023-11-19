@@ -1,8 +1,8 @@
 import React from 'react';
-import './SimpleTable.css';
+import './WinRateTable.css';
 import * as Utils from './utils';
 
-class SimpleTable extends React.Component {
+class WinRateTable extends React.Component {
 
   convertData(beforeData) {
     if (!Array.isArray(beforeData)) {
@@ -89,7 +89,7 @@ function TableRow({ data }) {
 
 function Table({ dataList }) {
   return (
-    <table className="SimpleTable">
+    <table className="WinRateTable">
       <thead>
         <tr>
           <th>日付</th>
@@ -109,8 +109,8 @@ function Table({ dataList }) {
   );
 }
 
-export default SimpleTable;
+export default WinRateTable;
 
 // Usage
-// import SimpleTable from './SimpleTable';
-// <SimpleTable />
+// import WinRateTable from './WinRateTable';
+// <WinRateTable />

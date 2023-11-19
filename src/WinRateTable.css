@@ -1,5 +1,4 @@
-/* SimpleTable.css */
-.SimpleTable {
+.WinRateTable {
     border-collapse: collapse;
     width: 90%;
     margin-bottom: 20px;
@@ -7,16 +6,16 @@
     color: #ffffff; /* White text color */
 }
 
-.SimpleTable th, .SimpleTable td {
+.WinRateTable th, .WinRateTable td {
     border: 1px solid #ffffff;  /* White border color */
     text-align: left;
     padding: 8px;
 }
 
-.SimpleTable th {
+.WinRateTable th {
     background-color: #444444; /* Slightly lighter background for header */
 }
 
-.SimpleTable tr:nth-child(even) {
+.WinRateTable tr:nth-child(even) {
     background-color: #3a3a3a; /* Slightly different background for even rows */
 }

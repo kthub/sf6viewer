@@ -65,8 +65,10 @@ class SimpleTable extends React.Component {
     }
     return (
       <div>
-        <li>１週間の勝率（ランクマッチのみ）</li>
-        <Table dataList={this.convertData(this.props.gameRecord)} />
+        <ul>
+          <li>１週間の勝率（ランクマッチのみ）</li>
+          <Table dataList={this.convertData(this.props.gameRecord)} />
+        </ul>
       </div>
     );
   }

@@ -59,7 +59,7 @@ function SimpleForm(props) {
   }
 
   return (
-    <div>
+    <div className="simpleform">
       <form onSubmit={handleSubmit} className="form-content">
         <label>
           User Code: &nbsp;

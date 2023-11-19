@@ -1,4 +1,7 @@
-/* SimpleForm.css */
+.simpleform {
+    margin-bottom: 30px;
+}
+
 .form-content {
     display: flex;
     align-items: center;

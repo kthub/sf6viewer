@@ -43,8 +43,10 @@ class SimpleList extends React.Component {
     }
     return (
       <div>
-        <li>対戦キャラベスト10（直近１週間）</li>
-        <List dataList={this.convertData(this.props.gameRecord)} />
+        <ul>
+          <li>対戦キャラベスト10（直近１週間）</li>
+          <List dataList={this.convertData(this.props.gameRecord)} />
+        </ul>
       </div>
     );
   }

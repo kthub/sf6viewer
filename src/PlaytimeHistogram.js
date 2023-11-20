@@ -48,7 +48,7 @@ class PlaytimeHistogram extends React.Component {
       <div>
         <ul>
           <li>ランクマやってる時間帯（直近１週間）</li>
-          <ResponsiveContainer width="100%" height={300}>
+          <ResponsiveContainer width="90%" height={300}>
             <BarChart data={histogramData}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="hour" />

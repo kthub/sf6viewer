@@ -8,7 +8,7 @@ class UserInfo extends React.Component {
     if (this.props.gameRecord[0].CharacterName === '__NO_DATA__') {
       return (
         <span>
-          <font color="red">There is no data for the specified User Code.</font>
+          <font color="red">指定したUser Codeのデータは存在しません。</font>
         </span>
       );
     }

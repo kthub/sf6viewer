@@ -1,5 +1,6 @@
 import React from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import * as Utils from './utils';
 
 class PlaytimeHistogram extends React.Component {
 
@@ -23,7 +24,9 @@ class PlaytimeHistogram extends React.Component {
       hoursMap[`${hour.toString().padStart(2, '0')}:00`] = 0;
     }
 
-    gameRecord.forEach(record => {
+    let recentRecords = Utils.getRecentRankedMatch(gameRecord);
+
+    recentRecords.forEach(record => {
       const hourString = this.convertEpochToJSTHour(record.UploadedAt);
       hoursMap[hourString]++;
     });
@@ -45,11 +48,11 @@ class PlaytimeHistogram extends React.Component {
       <div>
         <ul>
           <li>ランクマやってる時間帯（直近１週間）</li>
-          <ResponsiveContainer width="90%" height={300}>
+          <ResponsiveContainer width="100%" height={300}>
             <BarChart data={histogramData}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="hour" />
-              <YAxis />
+              <YAxis hide={true}/>
               <Tooltip />
               <Bar dataKey="count" fill="#8884d8" />
             </BarChart>

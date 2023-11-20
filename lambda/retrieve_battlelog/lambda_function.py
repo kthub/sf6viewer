@@ -17,7 +17,7 @@ def lambda_handler(event, context):
   elif not (user_code.isdigit() and len(user_code) == 10):
     raise ValueError("USER_CODE must be a 10-digit number")
   
-  retrieve_option = int(event['queryStringParameters'].get('RETRIEVE_OPTION', 8))
+  retrieve_option = int(event['queryStringParameters'].get('RETRIEVE_OPTION', 10))
 
   logger.info(f'user_code : {user_code}')
   logger.info(f'retrieve_option: {retrieve_option}')
@@ -76,7 +76,7 @@ def lambda_handler(event, context):
   
   logger.info(f"User info queried. (CharacterName={characterName}, CurrentLP={currentLP})")
 
-  # Get the epoch timestamp for the start date (default to 8 days ago if not provided)
+  # Get the epoch timestamp for the start date
   start_epoch = int((time.time() - (retrieve_option * 24 * 60 * 60)))
   logger.info(f'start_epoch: {start_epoch}')
 

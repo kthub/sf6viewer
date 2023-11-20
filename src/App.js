@@ -4,6 +4,7 @@ import Form from './Form';
 import UserInfo from './UserInfo';
 import WinRateTable from './WinRateTable';
 import CharacterTop10List from './CharacterTop10List';
+import PlaytimeHistogram from './PlaytimeHistogram';
 
 function App() {
   const [gameRecord, setGameRecord] = useState({});
@@ -18,6 +19,7 @@ function App() {
         <UserInfo gameRecord={gameRecord} />
         <WinRateTable gameRecord={gameRecord} />
         <CharacterTop10List gameRecord={gameRecord} />
+        <PlaytimeHistogram gameRecord={gameRecord} />
       </main>
       <footer className="App-footer">
         <hr/>

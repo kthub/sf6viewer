@@ -65,7 +65,7 @@ export function calculateRank(lp) {
   for (let i = 0; i < ranks.length; i++) {
     const rank = ranks[i];
     if (lp >= rank.base) {
-      if (i == 0) {
+      if (i === 0) {
         return `Master`;
       } else {
         const remainingLp = lp - rank.base;

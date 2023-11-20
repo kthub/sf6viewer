@@ -5,8 +5,9 @@ export function getRecentRankedMatch(gameRecord) {
   // Get the current date and time in JST
   const jstOffset = 9 * 60 * 60 * 1000; // JST is UTC+9
   const nowJst = new Date(Date.now() + jstOffset);
-  const oneWeekAgoJst = new Date(nowJst.getTime() - 7 * 24 * 60 * 60 * 1000);
-  oneWeekAgoJst.setHours(0, 0, 0, 0);
+  const oneWeekAgo = new Date(nowJst.getTime() - 7 * 24 * 60 * 60 * 1000);
+  oneWeekAgo.setHours(0, 0, 0, 0);
+  const oneWeekAgoJst = new Date(oneWeekAgo.getTime() - (9 + 24) * 60 * 60 * 1000);
 
   // Filter records
   const recentRecords = gameRecord.filter(record => {

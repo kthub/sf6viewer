@@ -136,6 +136,10 @@ def lambda_handler(event, context):
       except:
         raise Exception("JSON Parse Error. Check if SERVER_ID is valid.")
       
+      # if replay_list doesn't exist, break the loop
+      if 'replay_list' not in data['pageProps'] or len(data['pageProps']['replay_list']) == 0:
+        break
+
       for replay in data['pageProps']['replay_list']:
         uploaded_at = replay['uploaded_at']
         if (uploaded_at > latestUploadedAt):

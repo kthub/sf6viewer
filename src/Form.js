@@ -13,6 +13,7 @@ function Form(props) {
   const handleSubmit = (e) => {
     e.preventDefault();
     setError('');
+    props.setGameRecord([]);
 
     // check input
     const isValid = /^\d{10}$/.test(userCode);

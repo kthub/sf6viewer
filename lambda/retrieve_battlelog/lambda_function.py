@@ -67,7 +67,7 @@ def lambda_handler(event, context):
       characterName = items[0]['CharacterName']
       currentLP = items[0]['CurrentLP']
     else:
-      characterName = "None"
+      characterName = "__NO_DATA__"
       currentLP = 0
 
   else:
@@ -106,6 +106,13 @@ def lambda_handler(event, context):
     item_copy['CharacterName'] = characterName
     item_copy['CurrentLP'] = int(currentLP)
     expanded_items.append(item_copy)
+
+  # For invalid(unused) UserCode
+  if len(expanded_items) == 0:
+    item = {}
+    item['CharacterName'] = characterName
+    item['CurrentLP'] = int(currentLP)
+    expanded_items.append(item)
 
   # Return JSON
   return {

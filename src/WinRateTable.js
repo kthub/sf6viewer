@@ -60,7 +60,10 @@ class WinRateTable extends React.Component {
    * React render method.
    */
   render() {
-    if (!this.props.gameRecord || !Array.isArray(this.props.gameRecord) || this.props.gameRecord.length === 0) {
+    if (!this.props.gameRecord ||
+        !Array.isArray(this.props.gameRecord) ||
+        this.props.gameRecord.length === 0 ||
+        this.props.gameRecord[0].CharacterName === '__NO_DATA__') {
       return null;
     }
     return (

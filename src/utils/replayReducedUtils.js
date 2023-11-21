@@ -2,12 +2,13 @@
  * getRecentRankedMatch
  */
 export function getRecentRankedMatch(gameRecord) {
-  // Get the current date and time in JST
-  const jstOffset = 9 * 60 * 60 * 1000; // JST is UTC+9
-  const nowJst = new Date(Date.now() + jstOffset);
-  const oneWeekAgo = new Date(nowJst.getTime() - 7 * 24 * 60 * 60 * 1000);
-  oneWeekAgo.setHours(0, 0, 0, 0);
-  const oneWeekAgoJst = new Date(oneWeekAgo.getTime() - (9 + 24) * 60 * 60 * 1000);
+  // Get 1 week ago
+  const oneWeekAgoUtc = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+  if (oneWeekAgoUtc.getUTCHours() < 15) {
+    oneWeekAgoUtc.setUTCDate(oneWeekAgoUtc.getUTCDate() - 1);
+  }
+  oneWeekAgoUtc.setUTCHours(15, 0, 0, 0);
+  const oneWeekAgoJst = oneWeekAgoUtc;
 
   // Filter records
   const recentRecords = gameRecord.filter(record => {

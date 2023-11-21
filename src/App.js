@@ -12,7 +12,7 @@ function App() {
   return (
     <div className="App">
       <header className="App-header">
-        <span className="title">SF6 Viewer</span><span className="version">ver 0.9</span>
+        <span className="title">SF6 Viewer</span><span className="version">ver 1.0</span>
       </header>
       <main className="App-contents">
         <Form setGameRecord={setGameRecord} />

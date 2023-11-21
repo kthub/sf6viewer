@@ -13,7 +13,7 @@ export function getRecentRankedMatch(gameRecord) {
   // Filter records
   const recentRecords = gameRecord.filter(record => {
     // check date (last 7 days are valid)
-    const uploadedDate = new Date(record.UploadedAt * 1000 + jstOffset);
+    const uploadedDate = new Date(record.UploadedAt * 1000);
     const isValidDate = (uploadedDate >= oneWeekAgoJst);
 
     // check match (RANKED MATCH is valid)

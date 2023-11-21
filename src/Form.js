@@ -1,17 +1,38 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import './Form.css';
 
 function Form(props) {
   const [userCode, setUserCode] = useState('');
+  const [isCodeSetFromURL, setIsCodeSetFromURL] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const sidValue = params.get('sid');
+
+    if (sidValue) {
+      setUserCode(sidValue);
+      setIsCodeSetFromURL(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (isCodeSetFromURL) {
+      console.log('use Effect called.')
+      handleSubmit();
+      setIsCodeSetFromURL(false);
+    }
+  }, [isCodeSetFromURL]);
 
   const handleChange = (e) => {
     setUserCode(e.target.value);
   };
 
   const handleSubmit = (e) => {
-    e.preventDefault();
+    if (e) {
+      e.preventDefault();
+    }
     setError('');
     props.setGameRecord([]);
 

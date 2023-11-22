@@ -88,7 +88,7 @@ def lambda_handler(event, context):
     user_code = event.get('USER_CODE')
     if not re.match(r'^\d{10}$', user_code):
       raise ValueError('user_code must be a 10-digit number')
-    server_id = os.environ['SERVER_ID']
+    server_id = os.environ['BUILD_ID']
     buckler_id = os.environ['BUCKLER_ID']
     gid = os.environ['GID']
 
@@ -134,7 +134,7 @@ def lambda_handler(event, context):
       try:
         data = response.json()
       except:
-        raise Exception("JSON Parse Error. Check if SERVER_ID is valid.")
+        raise Exception("JSON Parse Error. Check if BUILD_ID is valid.")
       
       # if replay_list doesn't exist, break the loop
       if 'replay_list' not in data['pageProps'] or len(data['pageProps']['replay_list']) == 0:

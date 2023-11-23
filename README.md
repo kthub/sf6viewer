@@ -1,10 +1,16 @@
 # SF6 Viewer
 <img src="doc/logo.png" width="80px">  
 
-[SF6 Vierer](https://orange-bay-0720d2e00.4.azurestaticapps.net/)は指定したユーザーの過去１週間の勝率を表示するアプリケーションです。  
+[SF6 Viewer](https://orange-bay-0720d2e00.4.azurestaticapps.net/)は指定したユーザーの過去１週間の勝率を表示するアプリケーションです。  
+集計の元となる対戦情報のデータはカプコンの[BUCKLER'S BOOT CAMP](https://www.streetfighter.com/6/buckler/ja-jp)から取得しています。（カプコンに怒られたらすぐに公開停止します）
 
 ### アプリケーション概要
-SF6 ViewerはフロントエンドをMicrosoft Azure Static Web Apps、バックエンドをAWS(Lambda, DynamoDB, API Gateway, EventBridge)により実装している。全体アーキテクチャ図は下記の通り。  
+SF6 Viewerはフロントエンドとバックエンドから構成されます。
+- フロントエンド  
+Microsoft Azure Static Web Apps上で動作するReactアプリケーション。ソースはこのGitHubリポジトリで管理されており、GitHub Actionsにより自動ビルド・自動デプロイが行われます。
+- バックエンド  
+AWS(Lambda, DynamoDB, API Gateway, EventBridge)上に構築。Lambdaの実装言語はPythonです。ソースはこのGitHub上のlambdaディレクトリ以下で管理されておりデプロイは手動です。  
+- 全体アーキテクチャ図  
 [TBD]
 
 ### 特記事項

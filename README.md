@@ -11,7 +11,7 @@ Microsoft Azure Static Web Apps上で動作するReactアプリケーション�
 - バックエンド  
 AWS(Lambda, DynamoDB, API Gateway, EventBridge)上に構築。Lambdaの実装言語はPythonです。ソースはこのGitHub上のlambdaディレクトリ以下で管理されておりデプロイは手動です。  
 - 全体アーキテクチャ図  
-[TBD]
+<img src="doc/pic/ArchitectureOverview.png" width="800px">
 
 ### 特記事項
 - BUCKLER'S BOOT CAMPから取得可能な対戦情報のデータは過去100件分のみであることから、全ての過去のデータを保持するためにDB(AWS DynamoDB)を配置する。また、BUCKLER'S BOOT CAMPから定期的にDBにデータを取得するバッチ処理を実装する。（最速で100試合するのに４時間弱かかるため、定期処理は３時間毎に実行する）

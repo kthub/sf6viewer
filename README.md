@@ -7,9 +7,9 @@
 ### アプリケーション概要
 SF6 Viewerはフロントエンドとバックエンドから構成されます。
 - フロントエンド  
-Microsoft Azure Static Web Apps上で動作するReactアプリケーション。ソースはこのGitHubリポジトリで管理されており、GitHub Actionsにより自動ビルド・自動デプロイが行われます。
+Microsoft Azure Static Web Apps上で動作するReactアプリケーションです。ソースはこのGitHubリポジトリで管理されています。GitHub Actionsにより自動ビルド・自動デプロイが行われます。
 - バックエンド  
-AWS(Lambda, DynamoDB, API Gateway, EventBridge)上に構築。Lambdaの実装言語はPythonです。ソースはこのGitHub上のlambdaディレクトリ以下で管理されておりデプロイは手動です。  
+AWS(Lambda, DynamoDB, API Gateway, EventBridge)上に構築しています。Lambdaの実装言語はPythonです。ソースはこのGitHub上のlambdaディレクトリ以下で管理されています。デプロイは手動です。  
 - 全体アーキテクチャ図  
 <img src="doc/pic/ArchitectureOverview.png" width="800px">
 

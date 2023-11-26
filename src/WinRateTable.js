@@ -12,6 +12,12 @@ class WinRateTable extends React.Component {
     const statsByDate = {};
     let recentRecords = Utils.getRecentRankedMatch(beforeData);
 
+    // [ADD 2023-11-26]
+    // check logic for no recent records
+    if (recentRecords.length === 0) {
+      return [];
+    }
+
     // add league point after battle
     Utils.addLeaguePointAfter(recentRecords, recentRecords[0].CurrentLP);
 

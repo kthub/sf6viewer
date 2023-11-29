@@ -3,6 +3,7 @@ import './Form.css';
 
 function Form(props) {
   const [userCode, setUserCode] = useState('');
+  const [fetchNow, setFetchNow] = useState('False');
   const [isCodeSetFromURL, setIsCodeSetFromURL] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
@@ -10,18 +11,22 @@ function Form(props) {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const sidValue = params.get('sid');
+    const fetchNow = params.get('fetchNow');
 
     if (sidValue) {
       setUserCode(sidValue);
       setIsCodeSetFromURL(true);
+      if (fetchNow) {
+        setFetchNow(fetchNow);
+      }
     }
   }, []);
 
   useEffect(() => {
     if (isCodeSetFromURL) {
-      console.log('use Effect called.')
       handleSubmit();
       setIsCodeSetFromURL(false);
+      setFetchNow('False')
     }
   }, [isCodeSetFromURL]);
 
@@ -50,7 +55,6 @@ function Form(props) {
     if (!error) {
       return null;
     }
-
     return (
       <div style={{ color: 'red', margin: '10px 0' }}>
         {error}
@@ -59,7 +63,7 @@ function Form(props) {
   }
 
   async function fetchData() {
-    const url = `https://wcsppz000i.execute-api.ap-northeast-1.amazonaws.com/retrieveBattleLog?USER_CODE=${userCode}`;
+    const url = `https://wcsppz000i.execute-api.ap-northeast-1.amazonaws.com/retrieveBattleLog?USER_CODE=${userCode}&FETCH_NOW=${fetchNow}`;
 
     try {
       const response = await fetch(url, {

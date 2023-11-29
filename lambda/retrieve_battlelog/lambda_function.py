@@ -18,27 +18,29 @@ def lambda_handler(event, context):
     raise ValueError("USER_CODE must be a 10-digit number")
   
   retrieve_option = int(event['queryStringParameters'].get('RETRIEVE_OPTION', 9))
+  fetch_now = event['queryStringParameters'].get('FETCH_NOW', 'False')
+  fetch_now = fetch_now.lower() == 'true'
 
   logger.info(f'user_code : {user_code}')
   logger.info(f'retrieve_option: {retrieve_option}')
-  
+  logger.info(f'fetch_now: {fetch_now}')
+
   # Initialize a DynamoDB resources
   dynamodb = boto3.resource('dynamodb')
   table_user = dynamodb.Table('User')
   table_battlelog = dynamodb.Table('BattleLog')
   
   # Query table_user
-  response = table_user.query(
-    KeyConditionExpression=Key('UserCode').eq(user_code),
-    ProjectionExpression='UserCode, CurrentLP, CharacterName'
-  )
-  items = response.get('Items', [])
-  if not items:
-    ##
-    ## special logic for first user
-    ##
-    # invoke updateBattleLog synchronously
-    logger.info(f"initial execution for user code : {user_code}")
+  if not fetch_now:
+    response = table_user.query(
+      KeyConditionExpression=Key('UserCode').eq(user_code),
+      ProjectionExpression='UserCode, CurrentLP, CharacterName'
+    )
+    items = response.get('Items', [])
+
+  if fetch_now or not items:
+    # Invoke updateBattleLog synchronously
+    logger.info(f"invoke updateBattleLog for user code : {user_code}")
     lambda_client = boto3.client('lambda')
     response = lambda_client.invoke(
       FunctionName='updateBattleLog',
@@ -54,7 +56,7 @@ def lambda_handler(event, context):
       response_payload = json.loads(response['Payload'].read())
       raise Exception(f"updateBattleLog invocation failed. response payload=({response_payload})")
 
-    time.sleep(1) # for dynamodb to be consistent
+    time.sleep(1) # sleep for dynamodb to be consistent
 
     # query again
     response = table_user.query(

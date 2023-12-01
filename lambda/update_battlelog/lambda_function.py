@@ -121,6 +121,7 @@ def lambda_handler(event, context):
 
     # Create items to write
     batch_items = []
+    uploaded_at_set = set()
     request_skip_flag = False
     for url in urls:
       if (request_skip_flag):
@@ -149,11 +150,13 @@ def lambda_handler(event, context):
             'Replay': json.dumps(replay),
             'ReplayReduced': json.dumps(transform_to_replay_reduced(replay, int(user_code))),
           }
-          batch_items.append({
+          if uploaded_at not in uploaded_at_set:
+            batch_items.append({
               'PutRequest': {
-                  'Item': item
+                'Item': item
               }
-          })
+            })
+            uploaded_at_set.add(uploaded_at)
         else:
           request_skip_flag = True
     

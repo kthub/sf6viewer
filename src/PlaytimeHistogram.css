@@ -1,0 +1,9 @@
+.custom-tooltip {
+  background-color: #333; /* 暗い背景色 */
+  border: 1px solid #777; /* 境界線を少し明るめに */
+  border-radius: 5px; /* 角丸 */
+  padding: 10px; /* パディング */
+  color: #ddd; /* 明るいテキスト色 */
+  font-size: 14px; /* テキストサイズ */
+  box-shadow: 0px 0px 5px rgba(0, 0, 0, 0.5); /* ソフトな影 */
+}

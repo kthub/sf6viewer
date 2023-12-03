@@ -7,72 +7,13 @@ import os
 import time
 import requests
 import re
+import replay_utils as ru
 
 # Configure logging
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
-# Battle input type transformation
-def transform_battle_input_type(bitype):
-  if bitype == "[t]モダン":
-    return "M"
-  elif bitype == "[t]クラシック":
-    return "C"
-  else:
-    return "?"
-
-# Result calculation
-def calculate_result(rounds):
-  if len(rounds) <= 1:
-    return "Unknown"
-  elif rounds.count(0) >= 2:
-    return "lose"
-  else:
-    return "win"
-
-# ReplayReduced creation
-def transform_to_replay_reduced(replay, short_id):
-  transformed = {}
-  
-  player1_info = replay.get('player1_info', {})
-  player2_info = replay.get('player2_info', {})
-  
-  player1 = player1_info.get('player', {})
-  player2 = player2_info.get('player', {})
-
-  # determine which player is myself
-  my_player_info, opponent_player_info = (player1_info, player2_info) if player1.get('short_id') == short_id else (player2_info, player1_info)
-  my_player, opponent_player = (player1, player2) if player1.get('short_id') == short_id else (player2, player1)
-
-  # Populate the transformed data
-  transformed.update({
-    'fighter_id': my_player.get('fighter_id', ''),
-    'short_id': my_player.get('short_id', ''),
-    'platform_name': my_player.get('platform_name', ''),
-    'character_name': my_player_info.get('character_name', ''),
-    'league_point': my_player_info.get('league_point', ''),
-    'battle_input_type_name': transform_battle_input_type(my_player_info.get('battle_input_type_name', '')),
-    'round_results': my_player_info.get('round_results', []),
-    'opponent': {
-        'fighter_id': opponent_player.get('fighter_id', ''),
-        'short_id': opponent_player.get('short_id', ''),
-        'platform_name': opponent_player.get('platform_name', ''),
-        'character_name': opponent_player_info.get('character_name', ''),
-        'league_point': opponent_player_info.get('league_point', ''),
-        'battle_input_type_name': transform_battle_input_type(opponent_player_info.get('battle_input_type_name', '')),
-        'round_results': opponent_player_info.get('round_results', [])
-    },
-    'result': calculate_result(my_player_info.get('round_results', [])),
-    'side': 'player1' if player1.get('short_id') == short_id else 'player2',
-    'replay_id': replay.get('replay_id', ''),
-    'uploaded_at': replay.get('uploaded_at', ''),
-    'views': replay.get('views', 0),
-    'replay_battle_type_name': replay.get('replay_battle_type_name', '')
-  })
-
-  return transformed
-
-# Initialize a session using Amazon DynamoDB
+# Initialize DynamoDB
 session = boto3.session.Session(region_name='ap-northeast-1')
 dynamodb = session.resource('dynamodb')
 table_user = dynamodb.Table('User')
@@ -82,13 +23,14 @@ table_battlelog = dynamodb.Table('BattleLog')
 sns = boto3.client('sns')
 SNS_TOPIC_ARN = "arn:aws:sns:ap-northeast-1:572065744477:email-notification"
 
+# Main
 def lambda_handler(event, context):
   try:
     # Configuration
     user_code = event.get('USER_CODE')
     if not re.match(r'^\d{10}$', user_code):
       raise ValueError('user_code must be a 10-digit number')
-    server_id = os.environ['BUILD_ID']
+    build_id = os.environ['BUILD_ID']
     buckler_id = os.environ['BUCKLER_ID']
     gid = os.environ['GID']
 
@@ -102,7 +44,7 @@ def lambda_handler(event, context):
     ## Update BattleLog
     ##
     # Target URL
-    base_url = f'https://www.streetfighter.com/6/buckler/_next/data/{server_id}/ja-jp/profile/{user_code}/battlelog.json?sid={user_code}'
+    base_url = f'https://www.streetfighter.com/6/buckler/_next/data/{build_id}/ja-jp/profile/{user_code}/battlelog.json?sid={user_code}'
     urls = [base_url + (f"&page={i}" if i > 1 else "") for i in range(1, 11)]
 
     # Get latest UploadedAt
@@ -121,7 +63,7 @@ def lambda_handler(event, context):
 
     # Create items to write
     batch_items = []
-    uploaded_at_set = set()
+    uploaded_at_set = set() # for duplicate prevention
     request_skip_flag = False
     for url in urls:
       if (request_skip_flag):
@@ -148,7 +90,7 @@ def lambda_handler(event, context):
             'UserCode': user_code,
             'UploadedAt': uploaded_at,
             'Replay': json.dumps(replay),
-            'ReplayReduced': json.dumps(transform_to_replay_reduced(replay, int(user_code))),
+            'ReplayReduced': json.dumps(ru.transform_to_replay_reduced(replay, int(user_code))),
           }
           if uploaded_at not in uploaded_at_set:
             batch_items.append({
@@ -161,12 +103,20 @@ def lambda_handler(event, context):
           request_skip_flag = True
     
     if len(batch_items) > 0:
-      logger.info(f'new record detected ({len(batch_items)} items)')
+      logger.info(f'new record detected. ({len(batch_items)} items)')
 
     # Batch Write (max items per one batch operation is 25)
     for i in range(0, len(batch_items), 25):
       batch_to_write = batch_items[i:i+25]
-      response = dynamodb.batch_write_item(RequestItems={table_battlelog.name: batch_to_write})
+      logger.info("start batch write[" + str(i+1) + "-" + str(i+25) + "]")
+      try:
+        response = dynamodb.batch_write_item(RequestItems={table_battlelog.name: batch_to_write})
+        if 'UnprocessedItems' in response and response['UnprocessedItems']:
+          logger.info("UnprocessedItems detected :", response['UnprocessedItems'])
+        else:
+          logger.info("all items are successfully processed.")
+      except Exception as e:
+        raise Exception("batch write error: " + str(e))
 
     # debug
     #for item in batch_items:
@@ -182,7 +132,7 @@ def lambda_handler(event, context):
     ##
     if len(batch_items) > 0:
       # Target URL
-      play_url = f'https://www.streetfighter.com/6/buckler/_next/data/{server_id}/ja-jp/profile/{user_code}/play.json?sid={user_code}'
+      play_url = f'https://www.streetfighter.com/6/buckler/_next/data/{build_id}/ja-jp/profile/{user_code}/play.json?sid={user_code}'
 
       # Query play.json and update User table
       request_start_time = time.perf_counter()

@@ -18,6 +18,7 @@ WORK_DIR=${PROJ_DIR}/work
 
 # copy resources
 cp -p ${PROJ_DIR}/lambda_function.py ${WORK_DIR}
+cp -p ${PROJ_DIR}/replay_utils.py ${WORK_DIR}
 cp -r ${PROJ_DIR}/.venv/lib/python3.11/site-packages/* ${WORK_DIR}
 
 # create deployment-package

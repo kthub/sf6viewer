@@ -1,8 +1,7 @@
 import json
 import logging
 import boto3
-from boto3.dynamodb.conditions import Key, Attr
-from botocore.exceptions import ClientError
+from boto3.dynamodb.conditions import Key
 import os
 import time
 import requests

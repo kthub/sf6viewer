@@ -21,26 +21,22 @@ table_battlelog = dynamodb.Table('BattleLog')
 # Initialize Lambda
 lambda_client = boto3.client('lambda')
 
-def update_lambda_environment(function_name, new_environment_variables):
-  # 現在のLambda関数の設定を取得
-  response = lambda_client.get_function_configuration(FunctionName=function_name)
+# update environment variable for lambda
+def update_lambda_environment(fname, new_environment_variables):
+  response = lambda_client.get_function_configuration(FunctionName=fname)
   current_env_vars = response['Environment']['Variables']
 
-  # 新しい環境変数を追加または更新
   current_env_vars.update(new_environment_variables)
-
-  # 更新された環境変数でLambda関数を更新
   lambda_client.update_function_configuration(
-    FunctionName=function_name,
+    FunctionName=fname,
     Environment={'Variables': current_env_vars}
   )
 
+# main
 def lambda_handler(event, context):
-  
   ##
   ## Update Build ID for updateBattleLog lambda function
   ##
-  # Get Build ID
   headers = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36'}
   resp = requests.get('https://www.streetfighter.com/6/buckler/ja-jp', headers=headers)
   soup = BeautifulSoup(resp.text, 'html.parser')
@@ -48,8 +44,6 @@ def lambda_handler(event, context):
   json_data = json.loads(script_tag.string)
   build_id = json_data.get('buildId', None)
   logger.info(f"update build id with : {build_id}")
-
-  # Update environment variable for updateBattleLog
   update_lambda_environment('updateBattleLog', {'BUILD_ID': build_id})
 
   ##

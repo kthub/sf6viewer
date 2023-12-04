@@ -58,7 +58,7 @@ def lambda_handler(event, context):
 
     time.sleep(1) # sleep for dynamodb to be consistent
 
-    # query again
+    # Query table_user again
     response = table_user.query(
       KeyConditionExpression=Key('UserCode').eq(user_code),
       ProjectionExpression='UserCode, CurrentLP, CharacterName',

@@ -22,7 +22,10 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
+.vscode
 .venv
 work
+
+# secrets
 get_json_from_bbc_secrets.sh
 dump-replayreduced-as-csv-config.ini

@@ -67,7 +67,7 @@ class PlaytimeHistogram extends React.Component {
     return (
       <div>
         <ul>
-          <li>ランクマやってる時間帯ごとの勝率（直近１週間）</li>
+          <li>ランクマやってる時間帯と勝率（直近１週間）</li>
           <ResponsiveContainer width="90%" height={300}>
             <BarChart data={this.calculateHistogramData(this.props.gameRecord)}>
               <CartesianGrid strokeDasharray="3 3" />

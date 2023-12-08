@@ -2,9 +2,9 @@ import React, { useState } from 'react';
 import './App.css';
 import Form from './Form';
 import UserInfo from './UserInfo';
-import WinRateTable from './WinRateTable';
-import CharacterTop10List from './CharacterTop10List';
-import PlaytimeHistogram from './PlaytimeHistogram';
+import WinRateTable from './analysys/WinRateTable';
+import CharacterTop10List from './analysys/CharacterTop10List';
+import PlaytimeHistogram from './analysys/PlaytimeHistogram';
 
 function App() {
   const [gameRecord, setGameRecord] = useState({});

@@ -1,16 +1,16 @@
 import React from 'react';
 import './WinRateTable.css';
-import * as Utils from './utils';
+import * as Utils from '../utils';
 
 class WinRateTable extends React.Component {
 
-  convertData(beforeData) {
-    if (!Array.isArray(beforeData)) {
+  convertData(gameRecord) {
+    if (!Array.isArray(gameRecord)) {
       return [];
     }
 
     const statsByDate = {};
-    let recentRecords = Utils.getRecentRankedMatch(beforeData);
+    let recentRecords = Utils.getRecentRankedMatch(gameRecord);
 
     // [ADD 2023-11-26]
     // check logic for no recent records
@@ -119,7 +119,3 @@ function Table({ dataList }) {
 }
 
 export default WinRateTable;
-
-// Usage
-// import WinRateTable from './WinRateTable';
-// <WinRateTable />

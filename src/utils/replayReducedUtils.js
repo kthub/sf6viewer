@@ -79,3 +79,12 @@ export function calculateRank(lp) {
     }
   }
 }
+
+/**
+ * getJSTHour from uploadedAt(epoch)
+ */
+export function getJSTHour(uploadedAt) {
+  const jstDate = new Date(uploadedAt * 1000 + 9 * 3600 * 1000);
+  const hour = jstDate.getUTCHours();
+  return `${hour.toString().padStart(2, '0')}:00`;
+}

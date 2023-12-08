@@ -1,5 +1,5 @@
 import React from 'react';
-import * as Utils from './utils';
+import * as Utils from '../utils';
 import './CharacterTop10List.css';
 
 class CharacterTop10List extends React.Component {

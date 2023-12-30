@@ -52,7 +52,8 @@ class PlaytimeHistogram extends React.Component {
     if (!this.props.gameRecord ||
       !Array.isArray(this.props.gameRecord) ||
       this.props.gameRecord.length === 0 ||
-      this.props.gameRecord[0].CharacterName === '__NO_DATA__') {
+      this.props.gameRecord[0].CharacterName === '__NO_DATA__' ||
+      !this.props.gameRecord[0].ReplayReduced) {
       return null;
     }
     return (

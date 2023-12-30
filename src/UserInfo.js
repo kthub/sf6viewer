@@ -12,6 +12,13 @@ class UserInfo extends React.Component {
         </span>
       );
     }
+    if (!this.props.gameRecord[0].ReplayReduced) {
+      return (
+        <span>
+          <font color="red">指定したUser Codeのプレイヤーは最近スト6をプレイしていません。</font>
+        </span>
+      );
+    }
     return (
       <span>
         User Name: {this.props.gameRecord[0].ReplayReduced.fighter_id} （{this.props.gameRecord[0].CharacterName}）

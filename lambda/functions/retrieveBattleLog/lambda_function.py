@@ -103,6 +103,13 @@ def lambda_handler(event, context):
   expanded_items = []
   for item in items:
     item_copy = item.copy()  # Create a copy to avoid modifying the original item
+    # ---------------------------------------------------------------- #
+    # can add filter condition here (for transfered data optimization)
+    # ex.)
+    #  Battle Type (only Ranked Match)
+    #  Character Name (only current character)
+    #  etc..
+    # ---------------------------------------------------------------- #
     item_copy['ReplayReduced'] = json.loads(item['ReplayReduced'])  # Expand JSON string to JSON object
     item_copy['UploadedAt'] = int(item['UploadedAt'])
     item_copy['CharacterName'] = characterName

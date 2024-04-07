@@ -21,7 +21,7 @@ class UserInfo extends React.Component {
     }
     return (
       <span>
-        User Name: {this.props.gameRecord[0].ReplayReduced.fighter_id} （{this.props.gameRecord[0].CharacterName}）
+        User Name: {this.props.gameRecord[this.props.gameRecord.length - 1].ReplayReduced.fighter_id} （{this.props.gameRecord[0].CharacterName}）
       </span>
     );
   }

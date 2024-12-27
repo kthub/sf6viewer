@@ -25,7 +25,7 @@ def login_and_get_cookies():
         page.click('button[type="submit"]')
 
         # wait for the page to load
-        page.wait_for_load_state('networkidle')  # ネットワークリクエストが完了するまで待機
+        page.wait_for_load_state('networkidle')
 
         # Get buckler_id from cookies
         cookies = page.context.cookies()

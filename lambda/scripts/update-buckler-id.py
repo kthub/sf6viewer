@@ -7,35 +7,35 @@ PASSWORD = os.getenv("PASSWORD")
 
 def login_and_get_cookies():
     with sync_playwright() as p:
-        # Chromiumブラウザを起動（headless=Falseでブラウザを表示可能）
-        browser = p.chromium.launch(headless=False)
-        page = browser.new_page()
+        # Launch the browser
+        browser = p.chromium.launch(headless=True)
+        context = browser.new_context(
+            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36"
+        )
+        page = context.new_page()
 
-        # ログインページにアクセス
+        # access to the login page
         page.goto("https://www.streetfighter.com/6/buckler/auth/loginep?redirect_url=/")
 
-        # メールアドレスとパスワードを入力
+        # input email and password
         page.fill('input[name="email"]', EMAIL)
         page.fill('input[name="password"]', PASSWORD)
 
-        # ログインボタンをクリック
+        # click login button
         page.click('button[type="submit"]')
 
-        # ログイン後の処理を待機
+        # wait for the page to load
         page.wait_for_load_state('networkidle')  # ネットワークリクエストが完了するまで待機
 
-        # Cookieを取得
+        # Get buckler_id from cookies
         cookies = page.context.cookies()
-
-        # Cookieを表示
         for cookie in cookies:
-            # buckler_idを出力
             if cookie['name'] == 'buckler_id':
                 print(f"{cookie['value']}")
 
-        # ブラウザを閉じる
+        # close the browser
         browser.close()
 
-# 実行
+# Run the function
 if __name__ == "__main__":
     login_and_get_cookies()

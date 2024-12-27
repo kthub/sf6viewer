@@ -28,7 +28,7 @@ AWS(Lambda, DynamoDB, API Gateway, EventBridge)上に構築しています。Lam
   - Read Capacity Unit (RCU) = 5
 
 ### BUCKLER_IDの更新について
-Lambda関数(UpdateBattleLog)の実行では、環境変数に有効な `buckler_id` が設定されていることを前提としています。  `buckler_id` は一定期間で有効期限が切れるため、期限が切れたらログインを行って新しい `buckler_id` を取得し、Lambdaの環境変数に設定する必要があります。
+Lambda関数(updateBattleLog)の実行では、環境変数に有効な `buckler_id` が設定されていることを前提としています。  `buckler_id` は一定期間で有効期限が切れるため、期限が切れたらログインを行って新しい `buckler_id` を取得し、Lambdaの環境変数に設定する必要があります。
 
 
 この目的のため、以下のスクリプトを用意しています。

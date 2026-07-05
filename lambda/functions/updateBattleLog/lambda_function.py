@@ -22,6 +22,44 @@ table_battlelog = dynamodb.Table('BattleLog')
 sns = boto3.client('sns')
 SNS_TOPIC_ARN = "arn:aws:sns:ap-northeast-1:572065744477:email-notification"
 
+# Fetch JSON with retry for transient errors (rate limit, maintenance, WAF challenge, etc.)
+RETRYABLE_STATUS_CODES = {429, 500, 502, 503, 504}
+
+def fetch_json(url, headers, max_retries=3):
+  last_detail = None
+  for attempt in range(max_retries + 1):
+    if attempt > 0:
+      wait = 2 ** (attempt - 1) # 1, 2, 4 sec
+      logger.warning(f'retrying in {wait}s (attempt {attempt}/{max_retries}): {last_detail}')
+      time.sleep(wait)
+
+    request_start_time = time.perf_counter()
+    try:
+      response = requests.get(url, headers=headers, timeout=(10, 30))
+    except requests.RequestException as e:
+      last_detail = f'request failed ({e.__class__.__name__}: {e}). URL={url}'
+      continue
+    request_end_time = time.perf_counter()
+    logger.info(f'request completed with {(request_end_time - request_start_time) * 1000.0}[ms]. URL={url}')
+
+    if response.status_code in RETRYABLE_STATUS_CODES:
+      last_detail = f'HTTP {response.status_code}. URL={url}'
+      continue
+
+    try:
+      return response.json()
+    except ValueError:
+      body_head = response.text[:300].replace('\n', ' ')
+      last_detail = (f'JSON Parse Error. HTTP {response.status_code}, '
+                     f'Content-Type={response.headers.get("Content-Type")}, '
+                     f'URL={url}, body[:300]={body_head}')
+      if response.status_code == 404:
+        raise Exception(f'{last_detail} -- BUILD_ID is likely stale.')
+      # non-JSON body with other status (e.g. 200 HTML) may be transient -> retry
+      continue
+
+  raise Exception(f'giving up after {max_retries} retries: {last_detail}')
+
 # Main
 def lambda_handler(event, context):
   try:
@@ -68,21 +106,14 @@ def lambda_handler(event, context):
       if (request_skip_flag):
         break
 
-      request_start_time = time.perf_counter()
-      response = requests.get(url, headers=headers)
-      request_end_time = time.perf_counter()
-      logger.info(f'request completed with {(request_end_time - request_start_time) * 1000.0}[ms]. URL={url}')
+      data = fetch_json(url, headers)
 
-      try:
-        data = response.json()
-      except:
-        raise Exception("JSON Parse Error. Check if BUILD_ID is valid.")
-      
       # if replay_list doesn't exist, break the loop
-      if 'replay_list' not in data['pageProps'] or len(data['pageProps']['replay_list']) == 0:
+      page_props = data.get('pageProps') or {}
+      if 'replay_list' not in page_props or len(page_props['replay_list']) == 0:
         break
 
-      for replay in data['pageProps']['replay_list']:
+      for replay in page_props['replay_list']:
         uploaded_at = replay['uploaded_at']
         if (uploaded_at > latestUploadedAt):
           item = {
@@ -134,12 +165,7 @@ def lambda_handler(event, context):
       play_url = f'https://www.streetfighter.com/6/buckler/_next/data/{build_id}/ja-jp/profile/{user_code}/play.json?sid={user_code}'
 
       # Query play.json and update User table
-      request_start_time = time.perf_counter()
-      response = requests.get(play_url, headers=headers)
-      request_end_time = time.perf_counter()
-      logger.info(f'request completed with {(request_end_time - request_start_time) * 1000.0}[ms]. URL={play_url}')
-
-      data = response.json()
+      data = fetch_json(play_url, headers)
 
       # Get favorite character name
       favorite_character_id = data['pageProps']['fighter_banner_info']['favorite_character_id']

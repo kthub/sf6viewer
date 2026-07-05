@@ -22,20 +22,28 @@ table_battlelog = dynamodb.Table('BattleLog')
 sns = boto3.client('sns')
 SNS_TOPIC_ARN = "arn:aws:sns:ap-northeast-1:572065744477:email-notification"
 
+# Interval between page requests to avoid bursting the server (seconds)
+REQUEST_INTERVAL = float(os.environ.get('REQUEST_INTERVAL', '1'))
+
+# Reuse HTTP connection (keep-alive) across requests within a warm container
+http_session = requests.Session()
+
 # Fetch JSON with retry for transient errors (rate limit, maintenance, WAF challenge, etc.)
 RETRYABLE_STATUS_CODES = {429, 500, 502, 503, 504}
 
 def fetch_json(url, headers, max_retries=3):
   last_detail = None
+  wait_hint = None
   for attempt in range(max_retries + 1):
     if attempt > 0:
-      wait = 2 ** (attempt - 1) # 1, 2, 4 sec
+      wait = wait_hint if wait_hint else 2 ** (attempt - 1) # 1, 2, 4 sec
       logger.warning(f'retrying in {wait}s (attempt {attempt}/{max_retries}): {last_detail}')
       time.sleep(wait)
+      wait_hint = None
 
     request_start_time = time.perf_counter()
     try:
-      response = requests.get(url, headers=headers, timeout=(10, 30))
+      response = http_session.get(url, headers=headers, timeout=(10, 30))
     except requests.RequestException as e:
       last_detail = f'request failed ({e.__class__.__name__}: {e}). URL={url}'
       continue
@@ -44,10 +52,30 @@ def fetch_json(url, headers, max_retries=3):
 
     if response.status_code in RETRYABLE_STATUS_CODES:
       last_detail = f'HTTP {response.status_code}. URL={url}'
+      # honor Retry-After if the server tells us how long to wait (capped at 30s)
+      retry_after = response.headers.get('Retry-After')
+      if retry_after and retry_after.isdigit():
+        wait_hint = min(int(retry_after), 30)
       continue
 
+    # Buckler returns HTTP 403 with a JSON payload (pageProps.common.statusCode=403)
+    # when buckler_id is expired/invalid -> no point in retrying
+    if response.status_code == 403:
+      try:
+        payload_status = ((response.json().get('pageProps') or {}).get('common') or {}).get('statusCode')
+      except (ValueError, AttributeError):
+        payload_status = None
+      if payload_status == 403:
+        raise Exception(f'HTTP 403 with auth-denied payload -- buckler_id is likely expired or invalid. URL={url}')
+      last_detail = f'HTTP 403 without auth payload (possibly WAF/blocked). URL={url}'
+      continue
+
+    # redirected to the login page -> buckler_id is expired (no point in retrying)
+    if response.history and ('auth' in response.url or 'login' in response.url):
+      raise Exception(f'redirected to login page ({response.url}) -- buckler_id is likely expired. requested URL={url}')
+
     try:
-      return response.json()
+      data = response.json()
     except ValueError:
       body_head = response.text[:300].replace('\n', ' ')
       last_detail = (f'JSON Parse Error. HTTP {response.status_code}, '
@@ -57,6 +85,16 @@ def fetch_json(url, headers, max_retries=3):
         raise Exception(f'{last_detail} -- BUILD_ID is likely stale.')
       # non-JSON body with other status (e.g. 200 HTML) may be transient -> retry
       continue
+
+    # Next.js returns a redirect payload instead of page data when auth fails
+    if isinstance(data, dict):
+      redirect_to = (data.get('pageProps') or {}).get('__N_REDIRECT', '')
+      if redirect_to:
+        if 'auth' in redirect_to or 'login' in redirect_to:
+          raise Exception(f'got redirect payload to {redirect_to} -- buckler_id is likely expired. URL={url}')
+        raise Exception(f'got unexpected redirect payload to {redirect_to}. URL={url}')
+
+    return data
 
   raise Exception(f'giving up after {max_retries} retries: {last_detail}')
 
@@ -102,9 +140,13 @@ def lambda_handler(event, context):
     batch_items = []
     uploaded_at_set = set() # for duplicate prevention
     request_skip_flag = False
-    for url in urls:
+    for page, url in enumerate(urls):
       if (request_skip_flag):
         break
+
+      # pace page requests to be gentle on the server
+      if page > 0:
+        time.sleep(REQUEST_INTERVAL)
 
       data = fetch_json(url, headers)
 
@@ -165,6 +207,7 @@ def lambda_handler(event, context):
       play_url = f'https://www.streetfighter.com/6/buckler/_next/data/{build_id}/ja-jp/profile/{user_code}/play.json?sid={user_code}'
 
       # Query play.json and update User table
+      time.sleep(REQUEST_INTERVAL)
       data = fetch_json(play_url, headers)
 
       # Get favorite character name

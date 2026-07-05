@@ -13,6 +13,9 @@ logger.setLevel(logging.INFO)
 # User Limit
 USER_LIMIT = int(os.environ['USER_LIMIT'])
 
+# Interval between updateBattleLog invocations to spread out requests to the server (seconds)
+INVOKE_INTERVAL = float(os.environ.get('INVOKE_INTERVAL', '3'))
+
 # Initialize a DynamoDB resources
 dynamodb = boto3.resource('dynamodb')
 table_user = dynamodb.Table('User')
@@ -68,7 +71,7 @@ def lambda_handler(event, context):
       InvocationType='Event',
       Payload=json.dumps({'USER_CODE': user_code})
     )
-    time.sleep(1)
+    time.sleep(INVOKE_INTERVAL)
   logger.info(f"{len(items)} items are successfully invoked. USER_LIMIT={USER_LIMIT}")
 
   # Return JSON

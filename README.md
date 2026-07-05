@@ -38,7 +38,7 @@ Lambda関数(updateBattleLog)の実行では、環境変数に有効な `buckler
 この目的のため、以下のスクリプトを用意しています。
 
 ```shell
-scripts/update-buckler-id.sh
+lambda/scripts/update-buckler-id.sh
 ```
 
 Note:

@@ -38,6 +38,9 @@ def fetch_json(url, headers, max_retries=3):
     if attempt > 0:
       wait = wait_hint if wait_hint else 2 ** (attempt - 1) # 1, 2, 4 sec
       logger.warning(f'retrying in {wait}s (attempt {attempt}/{max_retries}): {last_detail}')
+      # discard pooled keep-alive connections so the retry opens a fresh connection
+      # (a broken edge/proxy can keep returning errors on the same connection)
+      http_session.close()
       time.sleep(wait)
       wait_hint = None
 

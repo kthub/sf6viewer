@@ -38,7 +38,12 @@ def lambda_handler(event, context):
     )
     items = response.get('Items', [])
 
+  # Whether updateBattleLog was invoked synchronously in this request
+  # (if so, read tables with strong consistency to see its writes)
+  update_invoked = False
+
   if fetch_now or not items:
+    update_invoked = True
     # Invoke updateBattleLog synchronously
     logger.info(f"invoke updateBattleLog for user code : {user_code}")
     lambda_client = boto3.client('lambda')
@@ -55,8 +60,6 @@ def lambda_handler(event, context):
       logger.info(f"updateBattleLog invocation failed.")
       response_payload = json.loads(response['Payload'].read())
       raise Exception(f"updateBattleLog invocation failed. response payload=({response_payload})")
-
-    time.sleep(1) # sleep for dynamodb to be consistent
 
     # Query table_user again
     response = table_user.query(
@@ -85,7 +88,8 @@ def lambda_handler(event, context):
   # Query table_battlelog
   response = table_battlelog.query(
     KeyConditionExpression=Key('UserCode').eq(user_code) & Key('UploadedAt').gte(start_epoch),
-    ProjectionExpression='UserCode, UploadedAt, ReplayReduced'
+    ProjectionExpression='UserCode, UploadedAt, ReplayReduced',
+    ConsistentRead=update_invoked
   )
   items = response.get('Items', [])
 
@@ -93,6 +97,7 @@ def lambda_handler(event, context):
     response = table_battlelog.query(
       KeyConditionExpression=Key('UserCode').eq(user_code) & Key('UploadedAt').gte(start_epoch),
       ProjectionExpression='UserCode, UploadedAt, ReplayReduced',
+      ConsistentRead=update_invoked,
       ExclusiveStartKey=response['LastEvaluatedKey']
     )
     items.extend(response.get('Items', []))

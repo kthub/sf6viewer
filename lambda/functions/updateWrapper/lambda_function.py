@@ -29,11 +29,26 @@ def update_lambda_environment(fname, new_environment_variables):
   response = lambda_client.get_function_configuration(FunctionName=fname)
   current_env_vars = response['Environment']['Variables']
 
+  # skip if nothing changes (update_function_configuration recycles warm
+  # containers, so needless updates just cause cold starts)
+  if all(current_env_vars.get(k) == v for k, v in new_environment_variables.items()):
+    logger.info(f"environment variables of {fname} are unchanged. skip updating.")
+    return
+
   current_env_vars.update(new_environment_variables)
   lambda_client.update_function_configuration(
     FunctionName=fname,
     Environment={'Variables': current_env_vars}
   )
+
+  # update_function_configuration is async: without waiting, the first
+  # invocations of this batch can run on warm containers that still hold
+  # the old BUILD_ID and fail with 404
+  lambda_client.get_waiter('function_updated_v2').wait(
+    FunctionName=fname,
+    WaiterConfig={'Delay': 2, 'MaxAttempts': 30}
+  )
+  logger.info(f"configuration update of {fname} has been applied.")
 
 # main
 def lambda_handler(event, context):

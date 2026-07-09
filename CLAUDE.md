@@ -42,7 +42,7 @@ lambda/scripts/update-buckler-id.sh
 ```
 EventBridge (3時間毎)
   → updateWrapper: Buckler トップページから buildId をスクレイピング
-      → updateBattleLog の環境変数 BUILD_ID を更新
+      → 変わっていれば updateBattleLog の環境変数 BUILD_ID を更新（反映完了を待つ）
       → User テーブルの各ユーザーについて updateBattleLog を非同期 invoke
         (INVOKE_INTERVAL 秒間隔・USER_LIMIT 件まで)
   → updateBattleLog: battlelog.json を最大10ページ取得 → BattleLog テーブルに書き込み
@@ -85,7 +85,7 @@ EventBridge (3時間毎)
 特に注意すべき罠:
 
 - **buckler_id 失効は JSON パースエラーにならない**。403 でも正常な JSON（`replay_list` なし）が返るため、明示的に検出しないと「新着なし」と区別がつかず、エラーも出ずに全ユーザーの更新が静かに止まる。`fetch_json()` の 403 チェックはこれを防ぐためのもの。
-- BUILD_ID は updateWrapper が毎バッチ自動更新するが、`update_function_configuration` は非同期のため、buildId が実際に変わった直後の invoke は旧環境変数の warm コンテナで走り 404 になり得る（次のバッチで自己回復する）。
+- BUILD_ID は updateWrapper がバッチごとにチェックし、**変わったときだけ**環境変数を更新する。`update_function_configuration` は非同期のため、更新後は waiter (`function_updated_v2`) で反映完了を待ってから invoke を開始する（2026-07 対応。これが無いと更新直後の invoke が旧環境変数の warm コンテナで走り 404 になる）。なお、バッチ間（最大3時間）に Capcom 側で buildId が変わった場合、その窓の間の fetchNow / 新規ユーザー登録は 404 になり得る（次のバッチで自己回復する）。
 - レスポンスの生ボディ・ステータスは `fetch_json()` がエラーメッセージに含める設計。エラー調査はまず SNS メール / CloudWatch の warning ログを見る。
 
 ### サーバーへの配慮（削らないこと）

@@ -2,11 +2,16 @@ import boto3
 from boto3.dynamodb.conditions import Key
 import json
 import logging
+import os
 import time
 
 # Configure logging
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
+
+# fetchNow cooldown: skip scraping if the last fetch (batch or fetchNow) for the
+# user is newer than this. Protects Buckler from bursts via the public endpoint.
+FETCH_COOLDOWN = int(os.environ.get('FETCH_COOLDOWN', '180'))
 
 def lambda_handler(event, context):
   
@@ -17,7 +22,13 @@ def lambda_handler(event, context):
   elif not (user_code.isdigit() and len(user_code) == 10):
     raise ValueError("USER_CODE must be a 10-digit number")
   
-  retrieve_option = int(event['queryStringParameters'].get('RETRIEVE_OPTION', 9))
+  # Days of history to return. The frontend always uses the default;
+  # dump-replayreduced-as-csv.py passes larger values. Clamped because this is
+  # a public unauthenticated endpoint.
+  retrieve_option = str(event['queryStringParameters'].get('RETRIEVE_OPTION', 9))
+  if not retrieve_option.isdigit():
+    raise ValueError("RETRIEVE_OPTION must be a number")
+  retrieve_option = min(max(int(retrieve_option), 1), 366)
   fetch_now = event['queryStringParameters'].get('FETCH_NOW', 'False')
   fetch_now = fetch_now.lower() == 'true'
 
@@ -30,13 +41,19 @@ def lambda_handler(event, context):
   table_user = dynamodb.Table('User')
   table_battlelog = dynamodb.Table('BattleLog')
   
-  # Query table_user
-  if not fetch_now:
-    response = table_user.query(
-      KeyConditionExpression=Key('UserCode').eq(user_code),
-      ProjectionExpression='UserCode, CurrentLP, CharacterName'
-    )
-    items = response.get('Items', [])
+  # Query table_user (needed even when fetch_now, for the cooldown check)
+  response = table_user.query(
+    KeyConditionExpression=Key('UserCode').eq(user_code),
+    ProjectionExpression='UserCode, CurrentLP, CharacterName, LastFetchedAt'
+  )
+  items = response.get('Items', [])
+
+  # fetchNow cooldown: if the data is fresh enough, serve from DB instead
+  if fetch_now and items:
+    elapsed = int(time.time()) - int(items[0].get('LastFetchedAt', 0))
+    if elapsed < FETCH_COOLDOWN:
+      logger.info(f'fetchNow suppressed by cooldown (last fetch {elapsed}s ago)')
+      fetch_now = False
 
   # Whether updateBattleLog was invoked synchronously in this request
   # (if so, read tables with strong consistency to see its writes)

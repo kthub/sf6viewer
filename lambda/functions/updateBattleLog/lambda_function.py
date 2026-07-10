@@ -248,6 +248,20 @@ def lambda_handler(event, context):
       )
       logger.info(f'update item in User table (UserCode={user_code})')
 
+    # Record fetch time for the fetchNow cooldown in retrieveBattleLog.
+    # Runs on every successful fetch (with or without new records), but only for
+    # registered users: attribute_exists prevents creating a partial User item
+    # (e.g. CharacterName missing) for codes that are not registered yet.
+    try:
+      table_user.update_item(
+        Key={'UserCode': user_code},
+        UpdateExpression='SET LastFetchedAt = :now',
+        ConditionExpression='attribute_exists(UserCode)',
+        ExpressionAttributeValues={':now': int(time.time())}
+      )
+    except dynamodb.meta.client.exceptions.ConditionalCheckFailedException:
+      pass
+
   except TransientError as e:
     # no SNS: async retry re-runs this function in a few minutes, and the next
     # batch fills any remaining gap. if all retries fail and the update is

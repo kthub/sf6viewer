@@ -22,6 +22,18 @@ table_battlelog = dynamodb.Table('BattleLog')
 sns = boto3.client('sns')
 SNS_TOPIC_ARN = "arn:aws:sns:ap-northeast-1:572065744477:email-notification"
 
+# Error classification for notifications:
+#  - TransientError: self-heals (Lambda async retry now, next batch at the latest).
+#    Log only, no SNS. If retries are exhausted and the update is dropped, the
+#    CloudWatch alarm on AsyncEventsDropped notifies instead.
+#  - ActionRequiredError: needs human action (e.g. buckler_id renewal). SNS right away.
+#  - any other exception: unexpected (bug etc.). SNS right away.
+class TransientError(Exception):
+  pass
+
+class ActionRequiredError(Exception):
+  pass
+
 # Interval between page requests to avoid bursting the server (seconds)
 REQUEST_INTERVAL = float(os.environ.get('REQUEST_INTERVAL', '1'))
 
@@ -69,13 +81,13 @@ def fetch_json(url, headers, max_retries=3):
       except (ValueError, AttributeError):
         payload_status = None
       if payload_status == 403:
-        raise Exception(f'HTTP 403 with auth-denied payload -- buckler_id is likely expired or invalid. URL={url}')
+        raise ActionRequiredError(f'HTTP 403 with auth-denied payload -- buckler_id is likely expired or invalid. URL={url}')
       last_detail = f'HTTP 403 without auth payload (possibly WAF/blocked). URL={url}'
       continue
 
     # redirected to the login page -> buckler_id is expired (no point in retrying)
     if response.history and ('auth' in response.url or 'login' in response.url):
-      raise Exception(f'redirected to login page ({response.url}) -- buckler_id is likely expired. requested URL={url}')
+      raise ActionRequiredError(f'redirected to login page ({response.url}) -- buckler_id is likely expired. requested URL={url}')
 
     try:
       data = response.json()
@@ -85,7 +97,8 @@ def fetch_json(url, headers, max_retries=3):
                      f'Content-Type={response.headers.get("Content-Type")}, '
                      f'URL={url}, body[:300]={body_head}')
       if response.status_code == 404:
-        raise Exception(f'{last_detail} -- BUILD_ID is likely stale.')
+        # heals at the next batch (updateWrapper refreshes BUILD_ID every batch)
+        raise TransientError(f'{last_detail} -- BUILD_ID is likely stale.')
       # non-JSON body with other status (e.g. 200 HTML) may be transient -> retry
       continue
 
@@ -94,12 +107,12 @@ def fetch_json(url, headers, max_retries=3):
       redirect_to = (data.get('pageProps') or {}).get('__N_REDIRECT', '')
       if redirect_to:
         if 'auth' in redirect_to or 'login' in redirect_to:
-          raise Exception(f'got redirect payload to {redirect_to} -- buckler_id is likely expired. URL={url}')
-        raise Exception(f'got unexpected redirect payload to {redirect_to}. URL={url}')
+          raise ActionRequiredError(f'got redirect payload to {redirect_to} -- buckler_id is likely expired. URL={url}')
+        raise ActionRequiredError(f'got unexpected redirect payload to {redirect_to}. URL={url}')
 
     return data
 
-  raise Exception(f'giving up after {max_retries} retries: {last_detail}')
+  raise TransientError(f'giving up after {max_retries} retries: {last_detail}')
 
 # Main
 def lambda_handler(event, context):
@@ -235,12 +248,18 @@ def lambda_handler(event, context):
       )
       logger.info(f'update item in User table (UserCode={user_code})')
 
+  except TransientError as e:
+    # no SNS: async retry re-runs this function in a few minutes, and the next
+    # batch fills any remaining gap. if all retries fail and the update is
+    # dropped, the AsyncEventsDropped CloudWatch alarm notifies instead.
+    logger.error(f'Error occurred (transient, not notified): {e}')
+    raise
   except Exception as e:
     logger.error(f'Error occurred: {e}')
     sns.publish(
       TopicArn=SNS_TOPIC_ARN,
       Message=f"An error occurred in the Lambda function: {e}",
-      Subject=f"Lambda Function Error (updateBattleLog, UserCode={user_code})"
+      Subject=f"[ACTION REQUIRED] updateBattleLog error (UserCode={user_code})"
     )
     raise
 

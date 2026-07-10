@@ -59,7 +59,7 @@ EventBridge (3時間毎)
 ### Lambda 関数 (`lambda/functions/`)
 
 - `updateWrapper` — バッチの起点。BUILD_ID の動的更新とユーザーごとの invoke。環境変数: `USER_LIMIT`（デフォルト30、無料枠のコスト制約）, `INVOKE_INTERVAL`（デフォルト3秒）。注意: 実行時間は「ユーザー数 × INVOKE_INTERVAL」なので Lambda の15分制限に注意。
-- `updateBattleLog` — スクレイピング本体。環境変数: `BUILD_ID`（updateWrapper が自動更新）, `BUCKLER_ID`（手動更新、下記）, `GID`, `REQUEST_INTERVAL`（ページ間待機、デフォルト1秒）。エラー時は SNS トピック `email-notification` にメール通知。`replay_utils.py` の `transform_to_replay_reduced()` が ReplayReduced（縮約レコード）を生成する。
+- `updateBattleLog` — スクレイピング本体。環境変数: `BUILD_ID`（updateWrapper が自動更新）, `BUCKLER_ID`（手動更新、下記）, `GID`, `REQUEST_INTERVAL`（ページ間待機、デフォルト1秒）。`replay_utils.py` の `transform_to_replay_reduced()` が ReplayReduced（縮約レコード）を生成する。
 - `retrieveBattleLog` — API Gateway から呼ばれる読み出し口。
 - `deleteBattleLog` — 指定ユーザーの全レコード削除。
 
@@ -80,10 +80,19 @@ EventBridge (3時間毎)
 
 | サーバーの応答 | 原因 | 処理 |
 |---|---|---|
-| HTTP 404 | BUILD_ID が古い | 即時エラー（リトライ無意味）。メッセージ: "BUILD_ID is likely stale" |
-| HTTP 403 + JSON ボディで `pageProps.common.statusCode == 403` | **buckler_id の失効・無効** | 即時エラー。メッセージ: "buckler_id is likely expired" |
+| HTTP 404 | BUILD_ID が古い | 即時エラー（リトライ無意味）。`TransientError`: "BUILD_ID is likely stale" |
+| HTTP 403 + JSON ボディで `pageProps.common.statusCode == 403` | **buckler_id の失効・無効** | 即時エラー。`ActionRequiredError`: "buckler_id is likely expired" |
 | HTTP 403（上記ペイロードなし） | WAF・ブロックの可能性 | リトライ |
-| HTTP 429/5xx、接続エラー、404以外の非JSON応答 | レートリミット・メンテナンス等の一時障害 | 指数バックオフ(1/2/4秒)で最大3回リトライ。`Retry-After` ヘッダーを尊重。リトライ中は warning ログのみで SNS 通知しない |
+| HTTP 429/5xx、接続エラー、404以外の非JSON応答 | レートリミット・メンテナンス等の一時障害 | 指数バックオフ(1/2/4秒)で最大3回リトライ。`Retry-After` ヘッダーを尊重。リトライ全滅で `TransientError` |
+
+### 通知設計（アラート疲れを起こさないこと）
+
+「人間の対応が必要なときだけメールが来る」を守る。2026-07 に整理済み（それ以前は自己回復するエラーも全部メールしていて S/N 比が壊れていた）。
+
+- **`ActionRequiredError`**（buckler_id 失効など要対応）と**想定外の例外**（バグ等）→ 即時 SNS メール（件名 "[ACTION REQUIRED]"）。SNS トピック: `email-notification`
+- **`TransientError`**（一時障害・BUILD_ID 404 など自己回復する類）→ ERROR ログのみ、**SNS しない**。Lambda の非同期自動リトライ（updateBattleLog は2回）と次バッチで回復する
+- **自己回復に失敗した**（リトライ全滅でイベント破棄）→ CloudWatch アラーム `updateBattleLog-update-dropped` / `updateWrapper-batch-dropped`（`AsyncEventsDropped >= 1`、period 3時間）が1通だけ通知。障害が続いてもアラーム状態が続くだけでメールは増えない。回復時に OK 通知
+- 新しいエラーを追加するときは必ずこの分類に沿わせること。「とりあえず SNS」はアラートを壊す
 
 特に注意すべき罠:
 

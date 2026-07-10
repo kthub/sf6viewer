@@ -62,6 +62,7 @@ EventBridge (3時間毎)
 - `updateBattleLog` — スクレイピング本体。環境変数: `BUILD_ID`（updateWrapper が自動更新）, `BUCKLER_ID`（手動更新、下記）, `GID`, `REQUEST_INTERVAL`（ページ間待機、デフォルト1秒）。`replay_utils.py` の `transform_to_replay_reduced()` が ReplayReduced（縮約レコード）を生成する。
 - `retrieveBattleLog` — API Gateway から呼ばれる読み出し口。
 - `deleteBattleLog` — 指定ユーザーの全レコード削除。
+- `monthlyReport` — 毎月1日 9:00 JST（EventBridge Scheduler `MonthlyReport`）に前月の利用状況・エラー・ログ使用量を SNS でメール。データソースは CloudWatch メトリクス / Logs Insights（スキャンは対象月のみに限定しているのでログを無期限に残してもコストは増えない）/ User テーブル。手動テスト: `aws lambda invoke --function-name monthlyReport --payload '{"REPORT_MONTH":"YYYY-MM"}' ...`
 
 ### DynamoDB
 

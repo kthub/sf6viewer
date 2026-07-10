@@ -1,4 +1,5 @@
 import boto3
+from boto3.dynamodb.conditions import Attr
 import json
 import logging
 import time
@@ -67,9 +68,10 @@ def lambda_handler(event, context):
   ##
   ## Check User Limit
   ##
-  # Get User List
+  # Get User List (skip manually disabled users; see lambda/scripts/set-user-disabled.sh)
   response = table_user.scan(
     ProjectionExpression='UserCode',
+    FilterExpression=Attr('Disabled').not_exists(),
     Limit=USER_LIMIT
   )
   items = response['Items']

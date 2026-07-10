@@ -222,19 +222,18 @@ def lambda_handler(event, context):
           favorite_character_name = character_info['character_name']
           break
 
-      # Create item to put
-      item = {
-        'UserCode': user_code,
-        'FighterId': data['pageProps']['fighter_banner_info']['personal_info']['fighter_id'],
-        'CharacterName': favorite_character_name,
-        'CurrentLP': data['pageProps']['fighter_banner_info']['favorite_character_league_info']['league_point']
-      }
-
-      # Put item
-      response = table_user.put_item(
-        Item=item
+      # Update item (creates the item if it doesn't exist; update_item instead of
+      # put_item so that manually managed attributes like Disabled are preserved)
+      response = table_user.update_item(
+        Key={'UserCode': user_code},
+        UpdateExpression='SET FighterId = :fighter_id, CharacterName = :character_name, CurrentLP = :current_lp',
+        ExpressionAttributeValues={
+          ':fighter_id': data['pageProps']['fighter_banner_info']['personal_info']['fighter_id'],
+          ':character_name': favorite_character_name,
+          ':current_lp': data['pageProps']['fighter_banner_info']['favorite_character_league_info']['league_point']
+        }
       )
-      logger.info(f'put item to User table (UserCode={user_code})')
+      logger.info(f'update item in User table (UserCode={user_code})')
 
   except Exception as e:
     logger.error(f'Error occurred: {e}')

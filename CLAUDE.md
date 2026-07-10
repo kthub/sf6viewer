@@ -27,6 +27,9 @@ lambda/functions/<関数名>/deploy.sh
 # Python の構文チェック（Python 用のテスト・リンタは無い）
 python3 -m py_compile lambda/functions/<関数名>/lambda_function.py
 
+# ユーザーをバッチ更新対象から除外/復帰（--list で一覧）
+lambda/scripts/set-user-disabled.sh <UserCode> on|off
+
 # buckler_id の更新（失効時。playwright でログインして環境変数を更新）
 lambda/scripts/update-buckler-id.sh
 # パスワードは update-buckler-id-secrets.sh に直接記載（Git には .template のみ）
@@ -62,7 +65,7 @@ EventBridge (3時間毎)
 
 ### DynamoDB
 
-- `User` (PK: UserCode) — 更新対象ユーザーのリスト + FighterId/CharacterName/CurrentLP。
+- `User` (PK: UserCode) — 更新対象ユーザーのリスト + FighterId/CharacterName/CurrentLP。`Disabled=true` を付けたユーザーは updateWrapper のバッチ更新対象から外れる（手動管理。`set-user-disabled.sh` で付け外し。閲覧・履歴・fetchNow はそのまま使える）。この属性を消さないよう User テーブルへの書き込みは put_item ではなく update_item で行うこと。
 - `BattleLog` (PK: UserCode, SK: UploadedAt) — `Replay`（元 JSON まるごと）と `ReplayReduced`（縮約版）の両方を保持。
 - オートスケーリング無効、WCU=RCU=5（無料枠の制約）。大量書き込みは batch_write（25件ずつ）で行う。
 - update 処理は冪等（最新 UploadedAt より新しいレコードだけ書く）なので重複実行対策は意図的に無い。

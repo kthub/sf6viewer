@@ -3,7 +3,7 @@
 SF6 Viewer が使用している AWS リソースの一覧。IaC 管理はしていないため、リソースを追加・変更したらこのファイルを更新すること。
 
 - アカウント: 572065744477 / リージョン: ap-northeast-1
-- 最終更新: 2026-07-10（このプロジェクトと無関係なリソースは載せていない。例: export-cwlogs, aws-rest-demo 系）
+- 最終更新: 2026-07-28（このプロジェクトと無関係なリソースは載せていない。例: export-cwlogs, aws-rest-demo 系）
 
 ## Lambda 関数（runtime: python3.11）
 
@@ -56,6 +56,8 @@ SF6 Viewer が使用している AWS リソースの一覧。IaC 管理はして
 | EventBridge_Scheduler_monthlyReport | Scheduler → monthlyReport | lambda:InvokeFunction（monthlyReport のみ） |
 
 （各 Lambda の service-role/*-role-* はコンソール作成時の自動生成ロール）
+
+- 管理ポリシー `sns-gmail-policy`（sns:Publish → email-notification のみ）は updateBattleLog と **updateWrapper** の両ロールにアタッチしている。updateWrapper の分は 2026-07-28 追加（buckler_id 失効時にバッチ開始時点で1通だけ通知するため）。
 
 ## CloudWatch Logs
 

@@ -31,9 +31,8 @@ python3 -m py_compile lambda/functions/<関数名>/lambda_function.py
 # ユーザーをバッチ更新対象から除外/復帰（--list で一覧）
 lambda/scripts/set-user-disabled.sh <UserCode> on|off
 
-# buckler_id の更新（失効時。playwright でログインして環境変数を更新）
-lambda/scripts/update-buckler-id.sh
-# パスワードは update-buckler-id-secrets.sh に直接記載（Git には .template のみ）
+# buckler_id の更新（失効時。ブラウザで手動ログインして環境変数を更新）
+# 手順は下記「buckler_id の更新」を参照。スクリプトは使わない。
 ```
 
 - Python は 2 スペースインデント。
@@ -47,6 +46,8 @@ lambda/scripts/update-buckler-id.sh
 EventBridge (3時間毎)
   → updateWrapper: Buckler トップページから buildId をスクレイピング
       → 変わっていれば updateBattleLog の環境変数 BUILD_ID を更新（反映完了を待つ）
+      → buckler_id の有効性を1回だけ確認（check_buckler_id）
+        → 失効していれば SNS 1通だけ送ってバッチ全体を中止（invoke しない）
       → User テーブルの各ユーザーについて updateBattleLog を非同期 invoke
         (INVOKE_INTERVAL 秒間隔・USER_LIMIT 件まで)
   → updateBattleLog: battlelog.json を最大10ページ取得 → BattleLog テーブルに書き込み
@@ -59,7 +60,7 @@ EventBridge (3時間毎)
 
 ### Lambda 関数 (`lambda/functions/`)
 
-- `updateWrapper` — バッチの起点。BUILD_ID の動的更新とユーザーごとの invoke。環境変数: `USER_LIMIT`（デフォルト30、無料枠のコスト制約）, `INVOKE_INTERVAL`（デフォルト3秒）。注意: 実行時間は「ユーザー数 × INVOKE_INTERVAL」なので Lambda の15分制限に注意。
+- `updateWrapper` — バッチの起点。BUILD_ID の動的更新、buckler_id の事前チェック、ユーザーごとの invoke。環境変数: `USER_LIMIT`（デフォルト30、無料枠のコスト制約）, `INVOKE_INTERVAL`（デフォルト3秒）。注意: 実行時間は「ユーザー数 × INVOKE_INTERVAL」なので Lambda の15分制限に注意。`check_buckler_id()` は updateBattleLog の環境変数（`BUCKLER_ID`/`GID`）を `get_function_configuration` で読むので、buckler_id 更新時に触る場所は updateBattleLog 側の1箇所だけでよい。
 - `updateBattleLog` — スクレイピング本体。環境変数: `BUILD_ID`（updateWrapper が自動更新）, `BUCKLER_ID`（手動更新、下記）, `GID`, `REQUEST_INTERVAL`（ページ間待機、デフォルト1秒）。`replay_utils.py` の `transform_to_replay_reduced()` が ReplayReduced（縮約レコード）を生成する。
 - `retrieveBattleLog` — API Gateway から呼ばれる読み出し口。環境変数: `FETCH_COOLDOWN`（デフォルト180秒）。fetchNow でも最終取得（User の `LastFetchedAt`、updateBattleLog が成功のたびに記録）からこの秒数以内なら DB から返すだけにする。公開エンドポイント経由で Buckler にバーストを撃たせられないようにするための制限なので削らないこと。`RETRIEVE_OPTION`（取得日数）は 1〜366 にクランプ。
 - `deleteBattleLog` — 指定ユーザーの全レコード削除。
@@ -91,7 +92,9 @@ EventBridge (3時間毎)
 
 「人間の対応が必要なときだけメールが来る」を守る。2026-07 に整理済み（それ以前は自己回復するエラーも全部メールしていて S/N 比が壊れていた）。
 
-- **`ActionRequiredError`**（buckler_id 失効など要対応）と**想定外の例外**（バグ等）→ 即時 SNS メール（件名 "[ACTION REQUIRED]"）。SNS トピック: `email-notification`
+- **buckler_id 失効** → updateWrapper の `check_buckler_id()` がバッチ開始時に1回だけ検出し、SNS メール1通（件名 "[ACTION REQUIRED] buckler_id is likely expired"）を送ってバッチを中止する。SNS トピック: `email-notification`
+- **updateBattleLog の `ActionRequiredError`** → ERROR ログのみ、**SNS しない**（上記の1通でカバーされるため）。全ユーザーで同時に発生する種類のエラーなので、invoke ごとに publish すると「ユーザー数 × 非同期リトライ回数」通のメールになる（2026-07-28 に13ユーザーで39通の実績。これがこの設計の理由）
+- **想定外の例外**（バグ等）→ 即時 SNS メール（件名 "[ACTION REQUIRED]"）
 - **`TransientError`**（一時障害・BUILD_ID 404 など自己回復する類）→ ERROR ログのみ、**SNS しない**。Lambda の非同期自動リトライ（updateBattleLog は2回）と次バッチで回復する
 - **自己回復に失敗した**（リトライ全滅でイベント破棄）→ CloudWatch アラーム `updateBattleLog-update-dropped` / `updateWrapper-batch-dropped`（`AsyncEventsDropped >= 1`、period 3時間）が1通だけ通知。障害が続いてもアラーム状態が続くだけでメールは増えない。回復時に OK 通知
 - 新しいエラーを追加するときは必ずこの分類に沿わせること。「とりあえず SNS」はアラートを壊す
@@ -101,6 +104,7 @@ EventBridge (3時間毎)
 - **buckler_id 失効は JSON パースエラーにならない**。403 でも正常な JSON（`replay_list` なし）が返るため、明示的に検出しないと「新着なし」と区別がつかず、エラーも出ずに全ユーザーの更新が静かに止まる。`fetch_json()` の 403 チェックはこれを防ぐためのもの。
 - BUILD_ID は updateWrapper がバッチごとにチェックし、**変わったときだけ**環境変数を更新する。`update_function_configuration` は非同期のため、更新後は waiter (`function_updated_v2`) で反映完了を待ってから invoke を開始する（2026-07 対応。これが無いと更新直後の invoke が旧環境変数の warm コンテナで走り 404 になる）。なお、バッチ間（最大3時間）に Capcom 側で buildId が変わった場合、その窓の間の fetchNow / 新規ユーザー登録は 404 になり得る（次のバッチで自己回復する）。
 - レスポンスの生ボディ・ステータスは `fetch_json()` がエラーメッセージに含める設計。エラー調査はまず SNS メール / CloudWatch の warning ログを見る。
+- buckler_id 失効の通知は**バッチ経路にしか無い**。retrieveBattleLog 経由（fetchNow・新規ユーザー登録）の updateBattleLog が失効に当たってもログだけで SNS は飛ばない。次のバッチの事前チェックが最大3時間以内に検知するので放置で構わないが、「fetchNow が失敗したのにメールが来ない」のは仕様。
 
 ### サーバーへの配慮（削らないこと）
 
@@ -109,4 +113,25 @@ EventBridge (3時間毎)
 
 ## buckler_id の更新
 
-`buckler_id` は Buckler のログイン Cookie で、一定期間で失効する。失効したら（SNS メールで "buckler_id is likely expired" が届いたら）`lambda/scripts/update-buckler-id.sh` を実行する。playwright(python) でログインを自動化し、Lambda の環境変数 `BUCKLER_ID` を更新する。
+`buckler_id` は Buckler のログイン Cookie で、一定期間で失効する。失効したら（SNS メールで "buckler_id is likely expired" が届いたら）**ブラウザから手動で取り直して** updateBattleLog の環境変数 `BUCKLER_ID` を更新する。
+
+1. ブラウザで Buckler にログインする
+2. DevTools → Application → Cookies → `buckler_id` の行を選択し、**下部の Cookie Value ペイン**から値をコピーする
+3. `aws lambda update-function-configuration` で updateBattleLog の `BUCKLER_ID` を更新する（触るのはこの1箇所だけ。updateWrapper は updateBattleLog の環境変数を読むので更新不要）
+
+注意点:
+
+- **値は 64 文字**。`-` `_` を含む base64url。Application パネルの**表のセルから直接コピーすると切り詰められる**ことがあり、2026-07-28 には 60 文字（`-`/`_` が全欠落）の値が入って「取り直しても直らない」状態になった。貼る前に必ず長さを確認すること。Network タブのリクエストヘッダからコピーしても良い。
+- 反映前に手元で検証できる:
+
+```sh
+BID='<コピーした値>'
+echo "len=${#BID}"   # 64 でなければコピーミス
+BUILD=$(curl -s https://www.streetfighter.com/6/buckler/ | grep -o '"buildId":"[^"]*"' | head -1 | cut -d'"' -f4)
+curl -s -o /dev/null -w '%{http_code}\n' -H "Cookie: buckler_id=${BID}" \
+  "https://www.streetfighter.com/6/buckler/_next/data/${BUILD}/ja-jp/profile/1654444812/battlelog.json?sid=1654444812"
+# 200 なら有効、403 ならまだダメ
+```
+
+- Cookie 属性は `HttpOnly; Secure` なので、Console の `document.cookie` では取得できない。
+- `lambda/scripts/update-buckler-id.sh` / `update-buckler-id.py`（playwright 版）は**使っていない**（実行環境に playwright が無い）。残置してあるだけなので参照しないこと。

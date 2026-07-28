@@ -268,6 +268,13 @@ def lambda_handler(event, context):
     # dropped, the AsyncEventsDropped CloudWatch alarm notifies instead.
     logger.error(f'Error occurred (transient, not notified): {e}')
     raise
+  except ActionRequiredError as e:
+    # no SNS from here: this fires identically for every user, so notifying per
+    # invocation produced one mail per user per async retry. updateWrapper
+    # checks buckler_id once at the start of each batch and sends a single
+    # mail instead (see check_buckler_id there).
+    logger.error(f'Error occurred (action required, notified by updateWrapper): {e}')
+    raise
   except Exception as e:
     logger.error(f'Error occurred: {e}')
     sns.publish(

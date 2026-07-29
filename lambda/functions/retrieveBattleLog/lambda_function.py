@@ -2,11 +2,16 @@ import boto3
 from boto3.dynamodb.conditions import Key
 import json
 import logging
+import os
 import time
 
 # Configure logging
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
+
+# fetchNow cooldown: skip scraping if the last fetch (batch or fetchNow) for the
+# user is newer than this. Protects Buckler from bursts via the public endpoint.
+FETCH_COOLDOWN = int(os.environ.get('FETCH_COOLDOWN', '180'))
 
 def lambda_handler(event, context):
   
@@ -17,7 +22,13 @@ def lambda_handler(event, context):
   elif not (user_code.isdigit() and len(user_code) == 10):
     raise ValueError("USER_CODE must be a 10-digit number")
   
-  retrieve_option = int(event['queryStringParameters'].get('RETRIEVE_OPTION', 9))
+  # Days of history to return. The frontend always uses the default;
+  # dump-replayreduced-as-csv.py passes larger values. Clamped because this is
+  # a public unauthenticated endpoint.
+  retrieve_option = str(event['queryStringParameters'].get('RETRIEVE_OPTION', 9))
+  if not retrieve_option.isdigit():
+    raise ValueError("RETRIEVE_OPTION must be a number")
+  retrieve_option = min(max(int(retrieve_option), 1), 366)
   fetch_now = event['queryStringParameters'].get('FETCH_NOW', 'False')
   fetch_now = fetch_now.lower() == 'true'
 
@@ -30,15 +41,32 @@ def lambda_handler(event, context):
   table_user = dynamodb.Table('User')
   table_battlelog = dynamodb.Table('BattleLog')
   
-  # Query table_user
-  if not fetch_now:
-    response = table_user.query(
-      KeyConditionExpression=Key('UserCode').eq(user_code),
-      ProjectionExpression='UserCode, CurrentLP, CharacterName'
-    )
-    items = response.get('Items', [])
+  # Query table_user (needed even when fetch_now, for the cooldown check)
+  response = table_user.query(
+    KeyConditionExpression=Key('UserCode').eq(user_code),
+    ProjectionExpression='UserCode, CurrentLP, CharacterName, LastFetchedAt'
+  )
+  items = response.get('Items', [])
+
+  # fetchNow cooldown: if the data is fresh enough, serve from DB instead
+  if fetch_now and items:
+    elapsed = int(time.time()) - int(items[0].get('LastFetchedAt', 0))
+    if elapsed < FETCH_COOLDOWN:
+      logger.info(f'fetchNow suppressed by cooldown (last fetch {elapsed}s ago)')
+      fetch_now = False
+
+  # Whether updateBattleLog was invoked synchronously in this request
+  # (if so, read tables with strong consistency to see its writes)
+  update_invoked = False
+  # Whether that invocation failed. The DB still holds what the last successful
+  # fetch wrote, so we serve that and tell the frontend it is not up to date
+  # (UpdateFailed below) rather than failing the whole request.
+  update_failed = False
 
   if fetch_now or not items:
+    # a user we have never fetched has nothing in the DB to fall back on
+    is_new_user = not items
+    update_invoked = True
     # Invoke updateBattleLog synchronously
     logger.info(f"invoke updateBattleLog for user code : {user_code}")
     lambda_client = boto3.client('lambda')
@@ -49,14 +77,26 @@ def lambda_handler(event, context):
     )
     # Check status code
     status_code = response['ResponseMetadata']['HTTPStatusCode']
-    if status_code == 200:
-      logger.info(f"updateBattleLog is successfully invoked.")
-    else:
+    if status_code != 200:
       logger.info(f"updateBattleLog invocation failed.")
       response_payload = json.loads(response['Payload'].read())
       raise Exception(f"updateBattleLog invocation failed. response payload=({response_payload})")
 
-    time.sleep(1) # sleep for dynamodb to be consistent
+    # The invoke API answers 200 as long as the *call* succeeded: an exception
+    # inside updateBattleLog is reported in the FunctionError key instead.
+    # Checking only the status code made every failure (stale BUILD_ID, expired
+    # buckler_id, ...) look like a success and silently serve stale data.
+    if 'FunctionError' in response:
+      update_failed = True
+      error_payload = response['Payload'].read().decode('utf-8')
+      logger.error(f"updateBattleLog failed ({response['FunctionError']}): {error_payload}")
+      # no SNS here: the batch path notifies for the errors that need a human
+      # (see check_buckler_id in updateWrapper). This endpoint is public, so
+      # publishing per request would be a mail amplifier.
+      if is_new_user:
+        raise Exception(f"updateBattleLog failed for an unregistered user (UserCode={user_code}). {error_payload}")
+    else:
+      logger.info(f"updateBattleLog is successfully invoked.")
 
     # Query table_user again
     response = table_user.query(
@@ -85,7 +125,8 @@ def lambda_handler(event, context):
   # Query table_battlelog
   response = table_battlelog.query(
     KeyConditionExpression=Key('UserCode').eq(user_code) & Key('UploadedAt').gte(start_epoch),
-    ProjectionExpression='UserCode, UploadedAt, ReplayReduced'
+    ProjectionExpression='UserCode, UploadedAt, ReplayReduced',
+    ConsistentRead=update_invoked
   )
   items = response.get('Items', [])
 
@@ -93,6 +134,7 @@ def lambda_handler(event, context):
     response = table_battlelog.query(
       KeyConditionExpression=Key('UserCode').eq(user_code) & Key('UploadedAt').gte(start_epoch),
       ProjectionExpression='UserCode, UploadedAt, ReplayReduced',
+      ConsistentRead=update_invoked,
       ExclusiveStartKey=response['LastEvaluatedKey']
     )
     items.extend(response.get('Items', []))
@@ -114,6 +156,9 @@ def lambda_handler(event, context):
     item_copy['UploadedAt'] = int(item['UploadedAt'])
     item_copy['CharacterName'] = characterName
     item_copy['CurrentLP'] = int(currentLP)
+    # per-item like the two above: the response has to stay a flat array
+    # (the frontend components and dump-replayreduced-as-csv.py index into it)
+    item_copy['UpdateFailed'] = update_failed
     expanded_items.append(item_copy)
 
   # For invalid(unused) UserCode
@@ -121,6 +166,7 @@ def lambda_handler(event, context):
     item = {}
     item['CharacterName'] = characterName
     item['CurrentLP'] = int(currentLP)
+    item['UpdateFailed'] = update_failed
     expanded_items.append(item)
 
   # Return JSON

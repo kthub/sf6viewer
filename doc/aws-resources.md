@@ -3,17 +3,19 @@
 SF6 Viewer が使用している AWS リソースの一覧。IaC 管理はしていないため、リソースを追加・変更したらこのファイルを更新すること。
 
 - アカウント: 572065744477 / リージョン: ap-northeast-1
-- 最終更新: 2026-07-28（このプロジェクトと無関係なリソースは載せていない。例: export-cwlogs, aws-rest-demo 系）
+- 最終更新: 2026-07-29（このプロジェクトと無関係なリソースは載せていない。例: export-cwlogs, aws-rest-demo 系）
 
 ## Lambda 関数（runtime: python3.11）
 
-| 関数 | 役割 | 実行ロール | 備考 |
-|---|---|---|---|
-| updateWrapper | 3時間毎バッチの起点 | service-role/updateWrapper-role-zovxb0ix | layer: web-scraping:3 |
-| updateBattleLog | スクレイピング本体 | service-role/updateBattleLog-role-lcy9kkda | layer: web-scraping:3。非同期リトライ2回・イベント最大保持1時間 |
-| retrieveBattleLog | API の読み出し口 | service-role/retrieveBattleLog-role-rdm3ol1j | |
-| deleteBattleLog | ユーザーの全レコード削除（手動実行のみ） | service-role/deleteBattleLog-role-vt9iqckp | API 非公開 |
-| monthlyReport | 月次レポートメール | monthlyReport-role | 2026-07 作成 |
+| 関数 | 役割 | 実行ロール | タイムアウト | 備考 |
+|---|---|---|---|---|
+| updateWrapper | 3時間毎バッチの起点 | service-role/updateWrapper-role-zovxb0ix | 900秒 | layer: web-scraping:3。2026-07-29 に 60秒 → 900秒（USER_LIMIT=30 × INVOKE_INTERVAL=3秒 が 60秒に収まらず、18ユーザー付近で頭打ちになるため） |
+| updateBattleLog | スクレイピング本体 | service-role/updateBattleLog-role-lcy9kkda | 300秒 | layer: web-scraping:3。非同期リトライ2回・イベント最大保持1時間 |
+| retrieveBattleLog | API の読み出し口 | service-role/retrieveBattleLog-role-rdm3ol1j | 300秒 | 実際の上限は API Gateway 側の統合タイムアウト30秒 |
+| deleteBattleLog | ユーザーの全レコード削除（手動実行のみ） | service-role/deleteBattleLog-role-vt9iqckp | - | API 非公開 |
+| monthlyReport | 月次レポートメール | monthlyReport-role | - | 2026-07 作成 |
+
+- タイムアウト・メモリ等の関数設定はコンソール/CLI 管理で、リポジトリには入っていない。`deploy.sh`（`update-function-code` のみ）はこれらを上書きしないので、デプロイで元に戻ることはない。
 
 - Lambda レイヤー: `web-scraping`（v3。requests, bs4 等。ソースは `lambda/layers/`）
 

@@ -58,8 +58,14 @@ def lambda_handler(event, context):
   # Whether updateBattleLog was invoked synchronously in this request
   # (if so, read tables with strong consistency to see its writes)
   update_invoked = False
+  # Whether that invocation failed. The DB still holds what the last successful
+  # fetch wrote, so we serve that and tell the frontend it is not up to date
+  # (UpdateFailed below) rather than failing the whole request.
+  update_failed = False
 
   if fetch_now or not items:
+    # a user we have never fetched has nothing in the DB to fall back on
+    is_new_user = not items
     update_invoked = True
     # Invoke updateBattleLog synchronously
     logger.info(f"invoke updateBattleLog for user code : {user_code}")
@@ -71,12 +77,26 @@ def lambda_handler(event, context):
     )
     # Check status code
     status_code = response['ResponseMetadata']['HTTPStatusCode']
-    if status_code == 200:
-      logger.info(f"updateBattleLog is successfully invoked.")
-    else:
+    if status_code != 200:
       logger.info(f"updateBattleLog invocation failed.")
       response_payload = json.loads(response['Payload'].read())
       raise Exception(f"updateBattleLog invocation failed. response payload=({response_payload})")
+
+    # The invoke API answers 200 as long as the *call* succeeded: an exception
+    # inside updateBattleLog is reported in the FunctionError key instead.
+    # Checking only the status code made every failure (stale BUILD_ID, expired
+    # buckler_id, ...) look like a success and silently serve stale data.
+    if 'FunctionError' in response:
+      update_failed = True
+      error_payload = response['Payload'].read().decode('utf-8')
+      logger.error(f"updateBattleLog failed ({response['FunctionError']}): {error_payload}")
+      # no SNS here: the batch path notifies for the errors that need a human
+      # (see check_buckler_id in updateWrapper). This endpoint is public, so
+      # publishing per request would be a mail amplifier.
+      if is_new_user:
+        raise Exception(f"updateBattleLog failed for an unregistered user (UserCode={user_code}). {error_payload}")
+    else:
+      logger.info(f"updateBattleLog is successfully invoked.")
 
     # Query table_user again
     response = table_user.query(
@@ -136,6 +156,9 @@ def lambda_handler(event, context):
     item_copy['UploadedAt'] = int(item['UploadedAt'])
     item_copy['CharacterName'] = characterName
     item_copy['CurrentLP'] = int(currentLP)
+    # per-item like the two above: the response has to stay a flat array
+    # (the frontend components and dump-replayreduced-as-csv.py index into it)
+    item_copy['UpdateFailed'] = update_failed
     expanded_items.append(item_copy)
 
   # For invalid(unused) UserCode
@@ -143,6 +166,7 @@ def lambda_handler(event, context):
     item = {}
     item['CharacterName'] = characterName
     item['CurrentLP'] = int(currentLP)
+    item['UpdateFailed'] = update_failed
     expanded_items.append(item)
 
   # Return JSON

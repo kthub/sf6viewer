@@ -7,6 +7,7 @@ function Form(props) {
   const [isCodeSetFromURL, setIsCodeSetFromURL] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [warning, setWarning] = useState('');
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -39,6 +40,7 @@ function Form(props) {
       e.preventDefault();
     }
     setError('');
+    setWarning('');
     props.setGameRecord([]);
 
     // check input
@@ -62,6 +64,18 @@ function Form(props) {
     );
   }
 
+  // shown when the data below is usable but not up to date (UpdateFailed)
+  const WarningMessage = ({ warning }) => {
+    if (!warning) {
+      return null;
+    }
+    return (
+      <div style={{ color: 'darkorange', margin: '10px 0' }}>
+        {warning}
+      </div>
+    );
+  }
+
   async function fetchData() {
     const url = `https://wcsppz000i.execute-api.ap-northeast-1.amazonaws.com/retrieveBattleLog?USER_CODE=${userCode}&FETCH_NOW=${fetchNow}`;
 
@@ -76,6 +90,11 @@ function Form(props) {
       } else {
         const gameRecord = await response.json();
         props.setGameRecord(gameRecord);
+        // the API served what it had in the DB, but the fetch it ran for this
+        // request failed, so the newest matches may be missing
+        if (Array.isArray(gameRecord) && gameRecord.length > 0 && gameRecord[0].UpdateFailed) {
+          setWarning('最新データの取得に失敗しました。表示中のデータは前回更新時点のものです。時間をおいて再度お試しください。');
+        }
         setIsLoading(false)
       }
     } catch (error) {
@@ -101,6 +120,7 @@ function Form(props) {
         </button>
       </form>
       <ErrorMessage error={error} />
+      <WarningMessage warning={warning} />
     </div>
   );
 }

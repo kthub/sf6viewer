@@ -60,9 +60,9 @@ EventBridge (3時間毎)
 
 ### Lambda 関数 (`lambda/functions/`)
 
-- `updateWrapper` — バッチの起点。BUILD_ID の動的更新、buckler_id の事前チェック、ユーザーごとの invoke。環境変数: `USER_LIMIT`（デフォルト30、無料枠のコスト制約）, `INVOKE_INTERVAL`（デフォルト3秒）。注意: 実行時間は「ユーザー数 × INVOKE_INTERVAL」なので Lambda の15分制限に注意。`check_buckler_id()` は updateBattleLog の環境変数（`BUCKLER_ID`/`GID`）を `get_function_configuration` で読むので、buckler_id 更新時に触る場所は updateBattleLog 側の1箇所だけでよい。
+- `updateWrapper` — バッチの起点。BUILD_ID の動的更新、buckler_id の事前チェック、ユーザーごとの invoke。環境変数: `USER_LIMIT`（デフォルト30、無料枠のコスト制約）, `INVOKE_INTERVAL`（デフォルト3秒）。注意: 実行時間は「ユーザー数 × INVOKE_INTERVAL」。関数のタイムアウトは900秒（2026-07-29 に60秒から変更。`USER_LIMIT=30` は60秒に収まらず18ユーザー付近で切れていた）。`check_buckler_id()` は updateBattleLog の環境変数（`BUCKLER_ID`/`GID`）を `get_function_configuration` で読むので、buckler_id 更新時に触る場所は updateBattleLog 側の1箇所だけでよい。
 - `updateBattleLog` — スクレイピング本体。環境変数: `BUILD_ID`（updateWrapper が自動更新）, `BUCKLER_ID`（手動更新、下記）, `GID`, `REQUEST_INTERVAL`（ページ間待機、デフォルト1秒）。`replay_utils.py` の `transform_to_replay_reduced()` が ReplayReduced（縮約レコード）を生成する。
-- `retrieveBattleLog` — API Gateway から呼ばれる読み出し口。環境変数: `FETCH_COOLDOWN`（デフォルト180秒）。fetchNow でも最終取得（User の `LastFetchedAt`、updateBattleLog が成功のたびに記録）からこの秒数以内なら DB から返すだけにする。公開エンドポイント経由で Buckler にバーストを撃たせられないようにするための制限なので削らないこと。`RETRIEVE_OPTION`（取得日数）は 1〜366 にクランプ。
+- `retrieveBattleLog` — API Gateway から呼ばれる読み出し口。環境変数: `FETCH_COOLDOWN`（デフォルト180秒）。fetchNow でも最終取得（User の `LastFetchedAt`、updateBattleLog が成功のたびに記録）からこの秒数以内なら DB から返すだけにする。公開エンドポイント経由で Buckler にバーストを撃たせられないようにするための制限なので削らないこと。`RETRIEVE_OPTION`（取得日数）は 1〜366 にクランプ。同期 invoke した updateBattleLog が失敗したかどうかは `FunctionError` キーで判定すること（`ResponseMetadata.HTTPStatusCode` は invoke API 自体の成否で、関数が例外を投げても 200。ここを見誤ると全ての失敗が「成功」に見えて古いデータを黙って返す。2026-07-29 修正）。失敗時は DB のデータを返しつつ全アイテムに `UpdateFailed: true` を載せる（未登録ユーザーは返せるものが無いので例外にする）。
 - `deleteBattleLog` — 指定ユーザーの全レコード削除。
 - `monthlyReport` — 毎月1日 9:00 JST（EventBridge Scheduler `MonthlyReport`）に前月の利用状況・エラー・ログ使用量を SNS でメール。データソースは CloudWatch メトリクス / Logs Insights（スキャンは対象月のみに限定しているのでログを無期限に残してもコストは増えない）/ User テーブル。手動テスト: `aws lambda invoke --function-name monthlyReport --payload '{"REPORT_MONTH":"YYYY-MM"}' ...`
 
@@ -76,6 +76,8 @@ EventBridge (3時間毎)
 ### フロントエンドとの結合点
 
 `src/utils/replayReducedUtils.js` は ReplayReduced のスキーマに依存している。`lambda/functions/updateBattleLog/replay_utils.py` の `transform_to_replay_reduced()` を変更する場合はフロント側との整合を確認すること。
+
+retrieveBattleLog のレスポンスは**フラットな配列**であること。`UserInfo.js` / `WinRateTable.js` / `CharacterTop10List.js` / `PlaytimeHistogram.js` と `lambda/scripts/dump-replayreduced-as-csv.py` がいずれも配列前提で `[0]` を参照するので、ユーザー単位の情報（`CharacterName` / `CurrentLP` / `UpdateFailed`）は冗長でも全アイテムに載せる方式にしてある。`UpdateFailed` は `Form.js` が `gameRecord[0]` を見て警告を出す。
 
 ## Buckler スクレイピングの知見（重要）
 
@@ -104,7 +106,7 @@ EventBridge (3時間毎)
 - **buckler_id 失効は JSON パースエラーにならない**。403 でも正常な JSON（`replay_list` なし）が返るため、明示的に検出しないと「新着なし」と区別がつかず、エラーも出ずに全ユーザーの更新が静かに止まる。`fetch_json()` の 403 チェックはこれを防ぐためのもの。
 - BUILD_ID は updateWrapper がバッチごとにチェックし、**変わったときだけ**環境変数を更新する。`update_function_configuration` は非同期のため、更新後は waiter (`function_updated_v2`) で反映完了を待ってから invoke を開始する（2026-07 対応。これが無いと更新直後の invoke が旧環境変数の warm コンテナで走り 404 になる）。なお、バッチ間（最大3時間）に Capcom 側で buildId が変わった場合、その窓の間の fetchNow / 新規ユーザー登録は 404 になり得る（次のバッチで自己回復する）。
 - レスポンスの生ボディ・ステータスは `fetch_json()` がエラーメッセージに含める設計。エラー調査はまず SNS メール / CloudWatch の warning ログを見る。
-- buckler_id 失効の通知は**バッチ経路にしか無い**。retrieveBattleLog 経由（fetchNow・新規ユーザー登録）の updateBattleLog が失効に当たってもログだけで SNS は飛ばない。次のバッチの事前チェックが最大3時間以内に検知するので放置で構わないが、「fetchNow が失敗したのにメールが来ない」のは仕様。
+- buckler_id 失効の通知は**バッチ経路にしか無い**。retrieveBattleLog 経由（fetchNow・新規ユーザー登録）の updateBattleLog が失効に当たってもログだけで SNS は飛ばない。次のバッチの事前チェックが最大3時間以内に検知するので放置で構わないが、「fetchNow が失敗したのにメールが来ない」のは仕様。代わりに retrieveBattleLog が `UpdateFailed` フラグを返し、フロントが「最新データの取得に失敗しました」と表示する（2026-07-29 追加）。公開エンドポイントなのでここから SNS を撃つとメール増幅器になる。
 
 ### サーバーへの配慮（削らないこと）
 

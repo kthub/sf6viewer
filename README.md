@@ -34,20 +34,3 @@ AWS(Lambda, DynamoDB, API Gateway, EventBridge)上に構築しています。Lam
 ## BUCKLER_IDの更新について
 
 Lambda関数(updateBattleLog)の実行では、環境変数に有効な `buckler_id` が設定されていることを前提としています。  `buckler_id` は一定期間で有効期限が切れるため、期限が切れたらログインを行って新しい `buckler_id` を取得し、Lambdaの環境変数に設定する必要があります。
-
-この目的のため、以下のスクリプトを用意しています。
-
-```shell
-lambda/scripts/update-buckler-id.sh
-```
-
-Note:
-
-- パスワードは`update-buckler-id-secrets.sh`に直接記載。（GitHubにはテンプレートのみ登録）
-- playwright (python) を使用してログイン操作をエミュレート。
-  - インストール方法
-
-  ```bash
-  pip install playwright
-  playwright install
-  ```

@@ -1,24 +1,51 @@
 name: Azure Static Web Apps CI/CD
 
+# PR ではビルドが通るかだけ確認し、Azure には触らない。
+# Azure/static-web-apps-deploy を PR で走らせると PR ごとにステージング
+# (プレビュー) 環境が作られ、上限に達すると
+#   "This Static Web App already has the maximum number of staging environments"
+# でデプロイが失敗する (2026-07-29 に発生)。プレビュー環境は使っていないので
+# そもそも作らせない。
 on:
   push:
     branches:
       - main
   pull_request:
-    types: [opened, synchronize, reopened, closed]
     branches:
       - main
 
 jobs:
+  build_check_job:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    name: Build Check Job
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22' # Azure 側 (Oryx) が使う Node に合わせる
+          cache: npm
+      - run: npm ci
+      - name: Build
+        run: npm run build
+        env:
+          CI: false # React のデフォルト警告でビルドを落とさない
+
   build_and_deploy_job:
-    if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.action != 'closed')
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     name: Build and Deploy Job
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v5
         with:
           submodules: true
           lfs: false
+          # 認証ヘッダーを checkout ステップの中で片付けさせる。SWA アクションは
+          # Docker で root として /github/workspace を触るため、その後の post 処理が
+          # .git/config を書き換えられず
+          #   Failed to remove 'http.https://github.com/.extraheader' from the git config
+          # の警告になる。この指定なら post に残る仕事が無いので警告も出ない。
+          persist-credentials: false
       - name: Build And Deploy
         id: builddeploy
         env:
@@ -35,14 +62,6 @@ jobs:
           output_location: "build" # Built app content directory - optional
           ###### End of Repository/Build Configurations ######
 
-  close_pull_request_job:
-    if: github.event_name == 'pull_request' && github.event.action == 'closed'
-    runs-on: ubuntu-latest
-    name: Close Pull Request Job
-    steps:
-      - name: Close Pull Request
-        id: closepullrequest
-        uses: Azure/static-web-apps-deploy@v1
-        with:
-          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_ORANGE_BAY_0720D2E00 }}
-          action: "close"
+  # close_pull_request_job (action: "close") は削除した。PR でステージング環境を
+  # 作らなくなったので、クローズ時に消す対象が無い。PR トリガーで SWA アクションを
+  # 復活させる場合はこのジョブも一緒に戻すこと (環境が消えずに溜まる)。

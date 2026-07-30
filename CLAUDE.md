@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 SF6 Viewer — 指定ユーザーの過去1週間の勝率を表示するアプリケーション。対戦データはカプコンの BUCKLER'S BOOT CAMP (https://www.streetfighter.com/6/buckler/) をスクレイピングして取得する。**公式 API ではない**ため、サーバーに負荷をかけない・行儀よくリクエストすることが最重要の運用制約（README 曰く「カプコンに怒られたらすぐに公開停止します」）。
 
-- フロントエンド: React (Create React App / react-scripts)。Azure Static Web Apps 上で動作。GitHub Actions で main への push 時に自動ビルド・自動デプロイ。
+- フロントエンド: React (Create React App / react-scripts)。Azure Static Web Apps 上で動作。GitHub Actions で main への push 時に自動ビルド・自動デプロイ。PR ではビルドが通るかだけ確認し、Azure には触らない（SWA アクションを PR で走らせると PR ごとにステージング環境が作られ、上限に達してデプロイが失敗するため。2026-07-29 対応）。
 - バックエンド: AWS (Lambda[Python] + DynamoDB + API Gateway + EventBridge)。ソースは `lambda/` 以下。**デプロイは手動**。
 - AWS リソースは IaC 管理していない。一覧は `doc/aws-resources.md`（リソースを追加・変更したら必ず更新すること）。
 
